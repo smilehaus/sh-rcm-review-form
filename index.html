@@ -1509,6 +1509,12 @@ async function generatePDF(summary) {
         doc.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
         // Strip edit-mode outlines
         doc.body.classList.remove('edit-mode');
+        // Expand all textareas to full scroll height so no text is clipped
+        doc.querySelectorAll('textarea').forEach(ta => {
+          ta.style.overflow = 'visible';
+          ta.style.height   = 'auto';
+          ta.style.minHeight = ta.scrollHeight + 'px';
+        });
       },
     });
   } finally {
