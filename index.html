@@ -429,6 +429,14 @@ body.form-locked .add-skill-btn { display: none; }
             <label class="field-label">Target Date</label>
             <input type="date" id="overrideGoalDate" style="max-width:220px;">
           </div>
+          <label class="field-label" style="margin-bottom:6px;">Override Raise Amount</label>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:14px;font-weight:600;color:var(--earth);">+$</span>
+            <input type="number" id="overrideRaise" min="0" step="0.25" placeholder="0.00"
+              style="max-width:110px;" oninput="onOverrideRaiseChange()">
+            <span style="font-size:13px;color:var(--earth);">/hr</span>
+            <span id="overrideNewRatePreview" style="font-size:12px;color:#5a4a3c;margin-left:4px;"></span>
+          </div>
           <label class="field-label" style="margin-bottom:6px;">Override Justification</label>
           <textarea id="overrideComment" rows="3" placeholder="Explain the reason for granting a raise outside the standard formula (e.g. retention risk, exceptional circumstances, market adjustment)…" style="width:100%;"></textarea>
         </div>
@@ -996,6 +1004,20 @@ function recalc() {
   }
 
   // Raise calculation
+  const ov       = getOverrideData();
+  const baseRate = parseFloat(document.getElementById('currentRate').value) || (level ? level.floor : 0);
+
+  // Override path — bypass formula entirely
+  if (ov.active && ov.raiseAmt > 0) {
+    const overrideNewRate = baseRate + ov.raiseAmt;
+    document.getElementById('raisePreview').textContent   = `+$${ov.raiseAmt.toFixed(2)}/hr`;
+    document.getElementById('newRatePreview').textContent = `Override · New rate: $${overrideNewRate.toFixed(2)}/hr`;
+    // Update inline preview too
+    document.getElementById('overrideNewRatePreview').textContent = baseRate > 0 ? `→ $${overrideNewRate.toFixed(2)}/hr` : '';
+    return;
+  }
+
+  // Formula path
   if (!level || total < 70 || !gateA) {
     const msg = !level ? 'Select level above' : total < 70 ? 'Score below 70 — no raise' : 'Gate A not passed — no raise';
     document.getElementById('raisePreview').textContent  = '$0.00/hr';
@@ -1006,7 +1028,6 @@ function recalc() {
   const promoting      = gateBResult && total >= 85 && highestPromoLevel;
   const pf             = promoting ? 1.5 : 1.0;
   const targetLevelObj = promoting ? LEVELS[highestPromoLevel] : level;
-  const baseRate       = parseFloat(document.getElementById('currentRate').value) || level.floor;
   const rawRaise       = (total - 70) * level.x * pf;
   let newRate          = Math.min(baseRate + rawRaise, targetLevelObj.ceiling);
   newRate              = Math.max(newRate, promoting ? targetLevelObj.floor : baseRate);
@@ -1173,6 +1194,7 @@ function toggleOverride() {
   badge.style.color = on ? '#e87770' : '';
   box.style.borderColor = on ? '#e87770' : '';
   if (on) updateOverrideTiming();
+  recalc();
   saveData();
 }
 
@@ -1191,12 +1213,28 @@ function getOverrideData() {
   const timing   = document.querySelector('input[name="overrideTiming"]:checked')?.value || 'now';
   const goalDate = document.getElementById('overrideGoalDate')?.value || '';
   const comment  = document.getElementById('overrideComment')?.value || '';
+  const raiseAmt = parseFloat(document.getElementById('overrideRaise')?.value) || 0;
   return {
     active:   cb?.checked || false,
     timing,
     goalDate: timing === 'goal' ? goalDate : '',
     comment,
+    raiseAmt,
   };
+}
+
+function onOverrideRaiseChange() {
+  const ov = getOverrideData();
+  if (!ov.active || ov.raiseAmt <= 0) {
+    document.getElementById('overrideNewRatePreview').textContent = '';
+    recalc();
+    return;
+  }
+  const baseRate = parseFloat(document.getElementById('currentRate').value) || 0;
+  const newRate  = baseRate + ov.raiseAmt;
+  document.getElementById('overrideNewRatePreview').textContent = baseRate > 0 ? `→ $${newRate.toFixed(2)}/hr` : '';
+  recalc();
+  saveData();
 }
 
 // ─── SUMMARY ─────────────────────────────────────────────────────────────────
@@ -1219,7 +1257,7 @@ function buildSummary() {
   const ov = getOverrideData();
 
   const ovLine = ov.active
-    ? `OVERRIDE ACTIVE — ${ov.timing === 'now' ? 'Effective Immediately' : `Goal Date: ${ov.goalDate || 'TBD'}`}  |  Justification: ${ov.comment || '—'}`
+    ? `OVERRIDE ACTIVE — Raise: +$${ov.raiseAmt.toFixed(2)}/hr  |  ${ov.timing === 'now' ? 'Effective Immediately' : `Goal Date: ${ov.goalDate || 'TBD'}`}  |  Justification: ${ov.comment || '—'}`
     : null;
 
   const text = [
@@ -1290,6 +1328,7 @@ function buildSummary() {
     ${ov.active ? `
     <div style="background:#fff3cd;border:1.5px solid #e87770;border-radius:5px;padding:14px 18px;margin-bottom:20px;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#c0392b;margin-bottom:6px;">⚠ Manager Override — Raise Granted Outside Formula</div>
+      <div style="font-size:13px;margin-bottom:4px;"><strong>Override Raise:</strong> +$${ov.raiseAmt.toFixed(2)}/hr</div>
       <div style="font-size:13px;margin-bottom:4px;"><strong>Effective:</strong> ${ov.timing === 'now' ? 'Right Away' : `Goal Date: ${ov.goalDate || 'TBD'}`}</div>
       ${ov.comment ? `<div style="font-size:13px;"><strong>Justification:</strong> ${ov.comment}</div>` : ''}
     </div>` : ''}
@@ -1710,8 +1749,9 @@ function restoreFormState() {
       const r = document.querySelector('input[name="overrideTiming"][value="goal"]');
       if (r) { r.checked = true; updateOverrideTiming(); }
     }
-    if (ov.goalDate) document.getElementById('overrideGoalDate').value = ov.goalDate;
-    if (ov.comment)  document.getElementById('overrideComment').value  = ov.comment;
+    if (ov.goalDate)  document.getElementById('overrideGoalDate').value = ov.goalDate;
+    if (ov.comment)   document.getElementById('overrideComment').value  = ov.comment;
+    if (ov.raiseAmt)  document.getElementById('overrideRaise').value    = ov.raiseAmt;
   }
 
   if (document.getElementById('currentTier').value) onLevelChange(true);
