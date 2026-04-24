@@ -1572,25 +1572,59 @@ async function generatePDF(summary) {
         doc.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
         // Strip edit-mode outlines
         doc.body.classList.remove('edit-mode');
-        // Replace every textarea with a plain div — html2canvas treats
-        // textareas as form controls and clips their content. A div with
-        // the same computed styles renders every line correctly.
+        // Force-show Manager Override body if active in live DOM
+        const overrideCheck = document.getElementById('overrideCheck');
+        if (overrideCheck && overrideCheck.checked) {
+          const ob = doc.getElementById('overrideBody');
+          if (ob) { ob.style.display = 'block'; ob.classList.add('open'); }
+        }
+        // Force-show Goal Dates body if active in live DOM
+        const goalDatesCheck = document.getElementById('goalDatesCheck');
+        if (goalDatesCheck && goalDatesCheck.checked) {
+          const gb = doc.getElementById('goalDatesBody');
+          if (gb) { gb.style.display = 'block'; gb.classList.add('open'); }
+        }
+        // Force-show Salary Conversion card if active in live DOM
+        const salaryCheck = document.getElementById('convertToSalaryCheck');
+        if (salaryCheck && salaryCheck.checked) {
+          const sc = doc.getElementById('salaryCard');
+          if (sc) sc.style.display = 'block';
+        }
+        // Replace every textarea with a plain div — html2canvas clips textarea
+        // content. Read value from live DOM (cloned inputs have empty .value).
         doc.querySelectorAll('textarea').forEach(ta => {
-          const cs  = window.getComputedStyle(ta);
-          const div = doc.createElement('div');
-          // Copy all layout/typography styles
+          const liveTA = ta.id ? document.getElementById(ta.id) : null;
+          const value  = liveTA ? liveTA.value : ta.value;
+          const cs     = window.getComputedStyle(liveTA || ta);
+          const div    = doc.createElement('div');
           ['font-family','font-size','font-weight','line-height','color',
            'padding','border','border-radius','background-color',
-           'width','box-sizing','white-space','word-break','word-wrap']
+           'width','box-sizing','word-break','word-wrap']
             .forEach(p => { div.style[p] = cs.getPropertyValue(p); });
-          div.style.whiteSpace   = 'pre-wrap';
-          div.style.wordBreak    = 'break-word';
-          div.style.overflow     = 'visible';
-          div.style.minHeight    = '0';
-          div.style.height       = 'auto';
-          // Preserve newlines
-          div.textContent = ta.value;
+          div.style.whiteSpace = 'pre-wrap';
+          div.style.wordBreak  = 'break-word';
+          div.style.overflow   = 'visible';
+          div.style.height     = 'auto';
+          div.style.minHeight  = '0';
+          div.textContent      = value;
           ta.parentNode.replaceChild(div, ta);
+        });
+        // Replace text/number/date inputs with divs — same clipping issue
+        doc.querySelectorAll('input[type=text], input[type=number], input[type=date]').forEach(inp => {
+          const liveInp = inp.id ? document.getElementById(inp.id) : null;
+          const value   = liveInp ? liveInp.value : inp.value;
+          if (!value) return;
+          const cs  = window.getComputedStyle(liveInp || inp);
+          const div = doc.createElement('div');
+          ['font-family','font-size','font-weight','line-height','color',
+           'padding','border','border-radius','background-color',
+           'width','box-sizing']
+            .forEach(p => { div.style[p] = cs.getPropertyValue(p); });
+          div.style.overflow   = 'visible';
+          div.style.height     = 'auto';
+          div.style.whiteSpace = 'nowrap';
+          div.textContent      = value;
+          inp.parentNode.replaceChild(div, inp);
         });
       },
     });
