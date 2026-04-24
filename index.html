@@ -176,6 +176,22 @@ body.form-locked .add-skill-btn { display: none; }
 .gate-box.pass { background: #d4edda; border-color: #2d6a3f; }
 .gate-box.fail { background: #fde8e8; border-color: #e74c3c; }
 .gate-box.incomplete { background: var(--alabaster); }
+
+/* Override box */
+.override-box { margin-top: 16px; border: 1.5px solid var(--sandstone); border-radius: var(--radius); overflow: hidden; }
+.override-toggle { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--alabaster); cursor: pointer; user-select: none; }
+.override-toggle input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--earth); cursor: pointer; flex-shrink: 0; }
+.override-toggle-label { font-size: 13px; font-weight: 600; color: var(--onyx); }
+.override-toggle-sub { font-size: 12px; color: var(--earth); margin-left: auto; }
+.override-body { display: none; padding: 16px; border-top: 1px solid var(--sandstone); background: #fffdf9; }
+.override-body.open { display: block; }
+.override-timing { display: flex; gap: 10px; margin-bottom: 14px; }
+.override-timing label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; cursor: pointer; padding: 8px 14px; border: 1.5px solid var(--sandstone); border-radius: var(--radius); flex: 1; justify-content: center; transition: all 0.12s; }
+.override-timing label:hover { border-color: var(--earth); }
+.override-timing input[type=radio] { accent-color: var(--earth); }
+.override-timing label.selected { border-color: var(--earth); background: #f5f0e8; color: var(--earth); font-weight: 600; }
+.override-goal-date { margin-bottom: 14px; display: none; }
+.override-goal-date.show { display: block; }
 .gate-box-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; color: var(--earth); }
 .gate-box-status { font-size: 16px; font-weight: 700; }
 .gate-box.pass .gate-box-status { color: #2d6a3f; }
@@ -391,6 +407,33 @@ body.form-locked .add-skill-btn { display: none; }
           <div class="gate-box-sub" id="gateBSub">Required for L2 advancement + score ≥ 85</div>
         </div>
       </div>
+
+      <!-- Override Box -->
+      <div class="override-box" id="overrideBox">
+        <div class="override-toggle" onclick="toggleOverride()">
+          <input type="checkbox" id="overrideCheck" onclick="event.stopPropagation(); toggleOverride()">
+          <span class="override-toggle-label">Manager Override — Grant Raise Outside Formula</span>
+          <span class="override-toggle-sub" id="overrideBadge">Off</span>
+        </div>
+        <div class="override-body" id="overrideBody">
+          <label class="field-label" style="margin-bottom:8px;">Raise Effective</label>
+          <div class="override-timing">
+            <label id="timingLabelNow" class="selected">
+              <input type="radio" name="overrideTiming" value="now" checked onchange="updateOverrideTiming()"> Right Away
+            </label>
+            <label id="timingLabelGoal">
+              <input type="radio" name="overrideTiming" value="goal" onchange="updateOverrideTiming()"> Goal Date
+            </label>
+          </div>
+          <div class="override-goal-date" id="overrideGoalDateWrap">
+            <label class="field-label">Target Date</label>
+            <input type="date" id="overrideGoalDate" style="max-width:220px;">
+          </div>
+          <label class="field-label" style="margin-bottom:6px;">Override Justification</label>
+          <textarea id="overrideComment" rows="3" placeholder="Explain the reason for granting a raise outside the standard formula (e.g. retention risk, exceptional circumstances, market adjustment)…" style="width:100%;"></textarea>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1113,6 +1156,49 @@ async function handleSubmit() {
   showToast(parts.join('  ·  '), clickupOk ? 'success' : 'error');
 }
 
+// ─── OVERRIDE ────────────────────────────────────────────────────────────────
+
+function toggleOverride() {
+  const cb   = document.getElementById('overrideCheck');
+  const body = document.getElementById('overrideBody');
+  const badge = document.getElementById('overrideBadge');
+  const box  = document.getElementById('overrideBox');
+
+  // When clicking the label div, sync checkbox
+  if (event && event.target !== cb) cb.checked = !cb.checked;
+
+  const on = cb.checked;
+  body.classList.toggle('open', on);
+  badge.textContent = on ? 'Active' : 'Off';
+  badge.style.color = on ? '#e87770' : '';
+  box.style.borderColor = on ? '#e87770' : '';
+  if (on) updateOverrideTiming();
+  saveData();
+}
+
+function updateOverrideTiming() {
+  const val  = document.querySelector('input[name="overrideTiming"]:checked')?.value;
+  const wrap = document.getElementById('overrideGoalDateWrap');
+  wrap.classList.toggle('show', val === 'goal');
+  // Update selected styling
+  document.getElementById('timingLabelNow').classList.toggle('selected', val === 'now');
+  document.getElementById('timingLabelGoal').classList.toggle('selected', val === 'goal');
+  saveData();
+}
+
+function getOverrideData() {
+  const cb       = document.getElementById('overrideCheck');
+  const timing   = document.querySelector('input[name="overrideTiming"]:checked')?.value || 'now';
+  const goalDate = document.getElementById('overrideGoalDate')?.value || '';
+  const comment  = document.getElementById('overrideComment')?.value || '';
+  return {
+    active:   cb?.checked || false,
+    timing,
+    goalDate: timing === 'goal' ? goalDate : '',
+    comment,
+  };
+}
+
 // ─── SUMMARY ─────────────────────────────────────────────────────────────────
 
 function buildSummary() {
@@ -1130,6 +1216,11 @@ function buildSummary() {
   const goals = f('goals'), empComments = f('employeeComments');
   const kpiNotes = f('kpiNotes');
   const notesA = f('notesA'), notesB = f('notesB'), notesC = f('notesC');
+  const ov = getOverrideData();
+
+  const ovLine = ov.active
+    ? `OVERRIDE ACTIVE — ${ov.timing === 'now' ? 'Effective Immediately' : `Goal Date: ${ov.goalDate || 'TBD'}`}  |  Justification: ${ov.comment || '—'}`
+    : null;
 
   const text = [
     'RCM MANAGER ANNUAL REVIEW — COMPENSATION SUMMARY',
@@ -1149,6 +1240,7 @@ function buildSummary() {
     'COMPENSATION DECISION',
     `  Raise:    ${raise}`,
     `  ${newRate}`,
+    ...(ovLine ? ['', '⚠ MANAGER OVERRIDE', `  ${ovLine}`] : []),
     '',
     'NARRATIVE',
     `  Strengths: ${strengths}`,
@@ -1190,11 +1282,17 @@ function buildSummary() {
       <tr><td style="padding:7px 10px;">Gate A — Core Operations Mastery</td><td style="padding:7px 10px;text-align:right;font-weight:600;">${gateA}</td></tr>
       <tr style="background:#fff"><td style="padding:7px 10px;">Gate B — Management Mastery</td><td style="padding:7px 10px;text-align:right;font-weight:600;">${gateB}</td></tr>
     </table>
-    <div style="background:#2A2E31;color:#fff;padding:18px 20px;border-radius:5px;margin-bottom:20px;text-align:center;">
+    <div style="background:#2A2E31;color:#fff;padding:18px 20px;border-radius:5px;margin-bottom:${ov.active ? '10px' : '20px'};text-align:center;">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.6;margin-bottom:6px;">Recommended Raise</div>
       <div style="font-size:34px;font-family:Georgia,serif;">${raise}</div>
       <div style="font-size:13px;opacity:0.7;margin-top:4px;">${newRate}</div>
     </div>
+    ${ov.active ? `
+    <div style="background:#fff3cd;border:1.5px solid #e87770;border-radius:5px;padding:14px 18px;margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#c0392b;margin-bottom:6px;">⚠ Manager Override — Raise Granted Outside Formula</div>
+      <div style="font-size:13px;margin-bottom:4px;"><strong>Effective:</strong> ${ov.timing === 'now' ? 'Right Away' : `Goal Date: ${ov.goalDate || 'TBD'}`}</div>
+      ${ov.comment ? `<div style="font-size:13px;"><strong>Justification:</strong> ${ov.comment}</div>` : ''}
+    </div>` : ''}
     ${strengths !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Strengths</div><div style="font-size:13px;">${strengths}</div></div>` : ''}
     ${growth !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Growth Areas</div><div style="font-size:13px;">${growth}</div></div>` : ''}
     ${goals !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Goals (Next 12 Months)</div><div style="font-size:13px;">${goals}</div></div>` : ''}
@@ -1546,6 +1644,8 @@ function saveFormState() {
         }
       }
     });
+    // Save override state
+    state._override = getOverrideData();
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   }, 300);
 }
@@ -1595,6 +1695,25 @@ function restoreFormState() {
       });
     });
   }
+  // Restore override state
+  if (state._override) {
+    const ov = state._override;
+    const cb = document.getElementById('overrideCheck');
+    if (cb) {
+      cb.checked = ov.active;
+      document.getElementById('overrideBody').classList.toggle('open', ov.active);
+      document.getElementById('overrideBadge').textContent = ov.active ? 'Active' : 'Off';
+      document.getElementById('overrideBadge').style.color = ov.active ? '#e87770' : '';
+      document.getElementById('overrideBox').style.borderColor = ov.active ? '#e87770' : '';
+    }
+    if (ov.timing === 'goal') {
+      const r = document.querySelector('input[name="overrideTiming"][value="goal"]');
+      if (r) { r.checked = true; updateOverrideTiming(); }
+    }
+    if (ov.goalDate) document.getElementById('overrideGoalDate').value = ov.goalDate;
+    if (ov.comment)  document.getElementById('overrideComment').value  = ov.comment;
+  }
+
   if (document.getElementById('currentTier').value) onLevelChange(true);
   recalc();
 }
