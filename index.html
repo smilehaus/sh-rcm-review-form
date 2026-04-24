@@ -293,7 +293,7 @@ body.form-locked .add-skill-btn { display: none; }
           <select id="currentTier" onchange="onLevelChange()">
             <option value="">— Select level —</option>
             <option value="L1">L1 — $22–27/hr — Core RCM Operations</option>
-            <option value="L2">L2 — $28–35/hr — Management &amp; Leadership</option>
+            <option value="L2">L2 — $28+/hr — Management &amp; Leadership</option>
           </select>
         </div>
         <div><label class="field-label">Review Period</label><input type="text" id="reviewPeriod" placeholder="e.g. Jan 2025 – Dec 2025" oninput="saveFormState()"></div>
@@ -492,7 +492,7 @@ body.form-locked .add-skill-btn { display: none; }
 
 const LEVELS = {
   L1: { floor: 22, ceiling: 27, x: 0.022, next: 'L2', label: 'Core RCM Operations',    rate: '$22–27/hr' },
-  L2: { floor: 28, ceiling: 35, x: 0.025, next: null,  label: 'Management & Leadership', rate: '$28–35/hr' },
+  L2: { floor: 28, ceiling: 999, x: 0.025, next: null,  label: 'Management & Leadership', rate: '$28+/hr' },
 };
 
 const LEVEL_SKILLS = {
