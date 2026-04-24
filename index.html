@@ -1221,35 +1221,43 @@ async function generatePDF(summary) {
   const { jsPDF } = window.jspdf;
   const mainEl = document.querySelector('.main');
 
-  // 1. Expand all level bodies
-  const tierBodies = [...mainEl.querySelectorAll('.tier-body')];
-  const wasOpen    = tierBodies.map(b => b.classList.contains('open'));
-  tierBodies.forEach(b => b.classList.add('open'));
+  // ── 1. Scroll to top so html2canvas captures from y=0 ────────────────────
+  const savedScrollY = window.scrollY;
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  // Wait two animation frames for the browser to repaint
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  // 2. Un-sticky score bar
-  const scoreBar = mainEl.querySelector('.score-summary');
-  const origPos  = scoreBar ? scoreBar.style.position : '';
-  if (scoreBar) scoreBar.style.position = 'relative';
-
-  // 3. Hide modals
-  const modals = [...document.querySelectorAll('.modal-overlay')];
-  modals.forEach(m => { m._prevDisplay = m.style.display; m.style.display = 'none'; });
-
-  // 4. Capture
+  // ── 2. Capture using onclone to modify snapshot, never the live DOM ───────
   let canvas;
   try {
     canvas = await html2canvas(mainEl, {
-      scale: 2, useCORS: true, allowTaint: false,
-      backgroundColor: '#F2EFE8', scrollX: 0, scrollY: 0,
-      windowWidth: mainEl.scrollWidth, windowHeight: mainEl.scrollHeight, logging: false,
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#F2EFE8',
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: document.documentElement.clientWidth,
+      windowHeight: document.documentElement.clientHeight,
+      logging: false,
+      onclone: (doc) => {
+        // Expand all tier/level accordion bodies
+        doc.querySelectorAll('.tier-body').forEach(b => b.classList.add('open'));
+        // Un-sticky score bar (no fixed/sticky offset in snapshot)
+        const bar = doc.querySelector('.score-summary');
+        if (bar) bar.style.position = 'relative';
+        // Hide any open modals / overlays
+        doc.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+        // Strip edit-mode outlines
+        doc.body.classList.remove('edit-mode');
+      },
     });
   } finally {
-    tierBodies.forEach((b, i) => { if (!wasOpen[i]) b.classList.remove('open'); });
-    if (scoreBar) scoreBar.style.position = origPos;
-    modals.forEach(m => { m.style.display = m._prevDisplay || ''; delete m._prevDisplay; });
+    // ── 3. Restore scroll position ─────────────────────────────────────────
+    window.scrollTo({ top: savedScrollY, behavior: 'instant' });
   }
 
-  // 5. Slice into A4 pages
+  // ── 4. Slice canvas into A4 pages ─────────────────────────────────────────
   const imgData = canvas.toDataURL('image/jpeg', 0.93);
   const pdf     = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pdfW    = pdf.internal.pageSize.getWidth();
