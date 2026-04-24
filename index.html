@@ -450,6 +450,14 @@ body.form-locked .add-skill-btn { display: none; }
             <span style="font-size:13px;color:var(--earth);">/hr</span>
             <span id="overrideNewRatePreview" style="font-size:12px;color:#5a4a3c;margin-left:4px;"></span>
           </div>
+          <!-- Convert to Salary toggle -->
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--alabaster);border:1px solid var(--sandstone);border-radius:var(--radius);margin-bottom:14px;cursor:pointer;" onclick="toggleConvertToSalary()">
+            <input type="checkbox" id="convertToSalaryCheck" onclick="event.stopPropagation();toggleConvertToSalary()" style="width:15px;height:15px;accent-color:var(--earth);cursor:pointer;flex-shrink:0;">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--onyx);">Convert to Salary</div>
+              <div style="font-size:11px;color:var(--earth);">Transitioning this employee to salaried compensation</div>
+            </div>
+          </div>
           <label class="field-label" style="margin-bottom:6px;">Override Justification</label>
           <textarea id="overrideComment" rows="3" placeholder="Explain the reason for granting a raise outside the standard formula (e.g. retention risk, exceptional circumstances, market adjustment)…" style="width:100%;"></textarea>
         </div>
@@ -458,8 +466,8 @@ body.form-locked .add-skill-btn { display: none; }
     </div>
   </div>
 
-  <!-- Salary Conversion -->
-  <div class="card">
+  <!-- Salary Conversion (hidden until Convert to Salary is checked) -->
+  <div class="card" id="salaryCard" style="display:none;">
     <div class="card-header">
       <h2>Salary Conversion</h2>
       <span class="pts">Hourly ↔ Annual</span>
@@ -1261,13 +1269,15 @@ function getOverrideData() {
   const timing   = document.querySelector('input[name="overrideTiming"]:checked')?.value || 'now';
   const goalDate = document.getElementById('overrideGoalDate')?.value || '';
   const comment  = document.getElementById('overrideComment')?.value || '';
-  const raiseAmt = parseFloat(document.getElementById('overrideRaise')?.value) || 0;
+  const raiseAmt       = parseFloat(document.getElementById('overrideRaise')?.value) || 0;
+  const convertSalary  = document.getElementById('convertToSalaryCheck')?.checked || false;
   return {
-    active:   cb?.checked || false,
+    active: cb?.checked || false,
     timing,
     goalDate: timing === 'goal' ? goalDate : '',
     comment,
     raiseAmt,
+    convertSalary,
   };
 }
 
@@ -1277,6 +1287,16 @@ const HOURS_PER_YEAR = 2080;
 
 function fmtSalary(n) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function toggleConvertToSalary() {
+  const cb = document.getElementById('convertToSalaryCheck');
+  if (event && event.target !== cb) cb.checked = !cb.checked;
+  const on = cb.checked;
+  document.getElementById('salaryCard').style.display = on ? '' : 'none';
+  if (!on) document.getElementById('salaryPreview').style.display = 'none';
+  else recalc();
+  saveData();
 }
 
 function onSalaryInput() {
@@ -1304,14 +1324,19 @@ function updateSalaryDisplay(currentHourly, newHourly) {
   }
 
   // New rate side
+  const convertOn = document.getElementById('convertToSalaryCheck')?.checked;
   if (newHourly > 0) {
     const newAnnual = newHourly * HOURS_PER_YEAR;
     document.getElementById('salaryNewAnnual').textContent = fmtSalary(newAnnual) + '/yr';
     document.getElementById('salaryNewHourly').textContent = `$${newHourly.toFixed(2)}/hr`;
-    // Score bar salary line
+    // Score bar salary line — only when converting to salary
     const salPrev = document.getElementById('salaryPreview');
-    salPrev.textContent = `≈ ${fmtSalary(newAnnual)}/yr`;
-    salPrev.style.display = 'block';
+    if (convertOn) {
+      salPrev.textContent = `≈ ${fmtSalary(newAnnual)}/yr`;
+      salPrev.style.display = 'block';
+    } else {
+      salPrev.style.display = 'none';
+    }
   } else {
     document.getElementById('salaryNewAnnual').textContent = '—';
     document.getElementById('salaryNewHourly').textContent = 'Complete scores above';
@@ -1846,9 +1871,16 @@ function restoreFormState() {
       const r = document.querySelector('input[name="overrideTiming"][value="goal"]');
       if (r) { r.checked = true; updateOverrideTiming(); }
     }
-    if (ov.goalDate)  document.getElementById('overrideGoalDate').value = ov.goalDate;
-    if (ov.comment)   document.getElementById('overrideComment').value  = ov.comment;
-    if (ov.raiseAmt)  document.getElementById('overrideRaise').value    = ov.raiseAmt;
+    if (ov.goalDate)  document.getElementById('overrideGoalDate').value    = ov.goalDate;
+    if (ov.comment)   document.getElementById('overrideComment').value     = ov.comment;
+    if (ov.raiseAmt)  document.getElementById('overrideRaise').value       = ov.raiseAmt;
+    if (ov.convertSalary) {
+      const cc = document.getElementById('convertToSalaryCheck');
+      if (cc) {
+        cc.checked = true;
+        document.getElementById('salaryCard').style.display = '';
+      }
+    }
   }
 
   if (document.getElementById('currentTier').value) onLevelChange(true);
