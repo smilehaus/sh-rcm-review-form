@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCM Manager Annual Review — Smile Haus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --onyx: #2A2E31; --alabaster: #F2EFE8; --sandstone: #D6CDBD;
+  --taupe: #C2B09E; --earth: #877765; --white: #FFFFFF; --radius: 6px;
+  --font-head: 'Cormorant Garamond', serif; --font-body: 'Jost', sans-serif;
+}
+body { font-family: var(--font-body); background: var(--alabaster); color: var(--onyx); font-size: 15px; line-height: 1.5; }
+
+/* Header */
+.site-header { background: var(--onyx); padding: 18px 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.site-header img { height: 36px; flex-shrink: 0; }
+.site-header h1 { font-family: var(--font-head); color: var(--white); font-weight: 300; font-size: 22px; letter-spacing: 0.04em; flex: 1; text-align: center; }
+.settings-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: var(--white); border-radius: var(--radius); padding: 6px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px; white-space: nowrap; }
+.settings-btn:hover { border-color: rgba(255,255,255,0.7); }
+.reset-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); border-radius: var(--radius); padding: 6px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px; white-space: nowrap; transition: all 0.15s; }
+.reset-btn:hover { border-color: #ff8a80; color: #ff8a80; }
+.template-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); border-radius: var(--radius); padding: 6px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px; white-space: nowrap; transition: all 0.15s; }
+.template-btn:hover { border-color: #81c784; color: #81c784; }
+.edit-lock-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: var(--white); border-radius: var(--radius); padding: 6px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px; white-space: nowrap; transition: all 0.15s; }
+.edit-lock-btn:hover { border-color: rgba(255,255,255,0.7); }
+.edit-lock-btn.locked { border-color: rgba(255,200,100,0.5); color: #ffd580; }
+.edit-lock-btn.locked:hover { border-color: #ffd580; }
+body.form-locked input:not(#pinInput), body.form-locked select, body.form-locked textarea { opacity: 0.7; pointer-events: none; background: #f5f3ef; }
+body.form-locked .skill-btn, body.form-locked .score-btn, body.form-locked .pass-all-btn, body.form-locked .fail-all-btn, body.form-locked .tier-expand-btn, body.form-locked #submitBtn { pointer-events: none; opacity: 0.55; }
+.pin-error { color: #c0392b; font-size: 13px; margin-top: 6px; display: none; }
+
+/* Main */
+.main { max-width: 960px; margin: 0 auto; padding: 28px 24px 80px; }
+
+/* Cards */
+.card { background: var(--white); border: 1px solid var(--sandstone); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
+.card-header { background: var(--onyx); color: var(--white); padding: 11px 20px; display: flex; align-items: center; justify-content: space-between; }
+.card-header h2 { font-family: var(--font-head); font-weight: 300; font-size: 18px; letter-spacing: 0.03em; }
+.card-header .pts { font-size: 12px; opacity: 0.55; }
+.card-body { padding: 20px; }
+
+/* Info grid */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+label.field-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--earth); margin-bottom: 4px; }
+input[type=text], input[type=date], input[type=number], select, textarea {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--sandstone); border-radius: var(--radius);
+  font-family: var(--font-body); font-size: 14px; background: var(--white); color: var(--onyx);
+}
+textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--earth); border-color: transparent; }
+
+/* Score summary sticky bar */
+.score-summary {
+  position: sticky; top: 10px; z-index: 10;
+  background: var(--onyx); color: var(--white); border-radius: var(--radius);
+  padding: 14px 24px; margin-bottom: 20px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr 2fr; gap: 16px; align-items: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.sum-block { text-align: center; }
+.sum-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5; margin-bottom: 2px; }
+.sum-value { font-size: 22px; font-weight: 600; font-family: var(--font-head); line-height: 1; }
+.sum-value.highlight { color: var(--taupe); }
+.band-block { text-align: right; }
+.band-name { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+.raise-preview { font-size: 28px; font-weight: 700; font-family: var(--font-head); line-height: 1; }
+.new-rate { font-size: 12px; opacity: 0.55; margin-top: 3px; }
+.band-pip { color: #e87770; } .band-coaching { color: #e8c170; }
+.band-meets { color: #a8c470; } .band-exceeds { color: #70c4b8; } .band-outstanding { color: #c4a070; }
+
+/* Scale bar */
+.scale-bar { background: var(--white); border: 1px solid var(--sandstone); border-radius: var(--radius); padding: 8px 16px; font-size: 12px; text-align: center; color: var(--earth); margin-bottom: 18px; }
+.scale-bar b { color: var(--onyx); }
+
+/* Tables */
+.kpi-table, .perf-table { width: 100%; border-collapse: collapse; }
+.kpi-table th, .perf-table th { background: var(--earth); color: var(--white); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 9px 14px; text-align: left; }
+.kpi-table th.c, .perf-table th.c { text-align: center; }
+.kpi-table td, .perf-table td { padding: 9px 14px; border-bottom: 1px solid var(--sandstone); vertical-align: middle; }
+.kpi-table tr:last-child td, .perf-table tr:last-child td { border-bottom: none; }
+.kpi-table tr:nth-child(even) td, .perf-table tr:nth-child(even) td { background: var(--alabaster); }
+.kpi-name, .crit-name { font-size: 14px; font-weight: 500; }
+.kpi-sub, .crit-desc { font-size: 12px; color: #5a4a3c; margin-top: 2px; }
+.kpi-target-input { border: none; background: transparent; font-family: var(--font-body); font-size: 13px; color: #5a4a3c; text-align: center; width: 100%; padding: 0; cursor: default; }
+.kpi-target-input:not(:disabled) { border-bottom: 1px dashed var(--sandstone); cursor: text; background: #fffdf9; padding: 2px 4px; border-radius: 3px; }
+[contenteditable="true"] { outline: none; border-bottom: 1px dashed var(--sandstone); border-radius: 2px; cursor: text; background: #fffdf9; padding: 0 2px; }
+[contenteditable="true"]:focus { background: #fff8ee; border-bottom-color: var(--earth); }
+
+/* Score buttons */
+.score-group { display: flex; gap: 4px; justify-content: center; }
+.score-btn {
+  width: 34px; height: 34px; border: 1.5px solid var(--sandstone); background: var(--white);
+  border-radius: 50%; cursor: pointer; font-family: var(--font-body); font-size: 14px; font-weight: 500;
+  color: var(--onyx); transition: all 0.12s; display: flex; align-items: center; justify-content: center;
+}
+.score-btn:hover { border-color: var(--earth); color: var(--earth); }
+.score-btn.active { background: var(--earth); border-color: var(--earth); color: var(--white); }
+
+/* Section subtotals */
+.subtotal-row { text-align: right; padding: 8px 14px; font-size: 13px; color: var(--earth); font-weight: 600; border-top: 1px solid var(--sandstone); background: var(--alabaster); }
+.section-notes { padding: 12px 14px 14px; border-top: 1px solid #f0ece4; }
+.section-notes .field-label { margin-bottom: 6px; }
+
+/* Perf subsection label */
+.subsection-label { background: var(--sandstone); padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--onyx); letter-spacing: 0.02em; border-top: 1px solid #c8bcae; }
+.subsection-label:first-child { border-top: none; }
+
+/* Narrative */
+.narrative-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.narrative-field { display: flex; flex-direction: column; }
+.narrative-field textarea { flex: 1; min-height: 100px; }
+.narrative-full { grid-column: 1 / -1; }
+
+/* Competency checklist */
+.tier-accordion { border: 1px solid var(--sandstone); border-radius: var(--radius); overflow: hidden; }
+.tier-row { border-bottom: 1px solid var(--sandstone); }
+.tier-row:last-child { border-bottom: none; }
+.tier-header { display: flex; align-items: center; padding: 10px 16px; gap: 8px; width: 100%; box-sizing: border-box; }
+.tier-header.current-tier { background: #f0ede6; }
+.tier-header.next-tier { background: #f5f0eb; }
+.tier-header-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden; }
+.tier-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.tier-badge { font-size: 12px; font-weight: 700; background: var(--onyx); color: var(--white); padding: 2px 8px; border-radius: 3px; flex-shrink: 0; }
+.tier-badge.current { background: var(--earth); }
+.tier-badge.next { background: var(--taupe); }
+.tier-title { font-size: 13px; font-weight: 500; }
+.tier-rate { font-size: 12px; color: var(--taupe); flex-shrink: 0; }
+.tier-gate-status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 3px; flex-shrink: 0; }
+.gate-pass { background: #d4edda; color: #2d6a3f; }
+.gate-fail { background: #fde8e8; color: #8a3a3a; }
+.tier-expand-btn { background: none; border: 1px solid var(--sandstone); border-radius: 4px; width: 28px; height: 26px; cursor: pointer; font-size: 15px; line-height: 1; color: var(--taupe); flex-shrink: 0; transition: transform 0.18s ease, border-color 0.15s, color 0.15s; display: flex; align-items: center; justify-content: center; transform: rotate(0deg); }
+.tier-expand-btn:hover { border-color: var(--earth); color: var(--earth); }
+.tier-expand-btn.open { transform: rotate(90deg); }
+.pass-all-btn { font-family: var(--font-body); font-size: 11px; font-weight: 600; background: #d4edda; border: 1.5px solid #2d6a3f; color: #2d6a3f; border-radius: 4px; padding: 3px 9px; cursor: pointer; flex-shrink: 0; transition: all 0.12s; white-space: nowrap; }
+.pass-all-btn:hover { background: #2d6a3f; color: #fff; }
+.pass-all-btn.all-passed { background: #2d6a3f; color: #fff; }
+.fail-all-btn { font-family: var(--font-body); font-size: 11px; font-weight: 600; background: #fde8e8; border: 1.5px solid #8a3a3a; color: #8a3a3a; border-radius: 4px; padding: 3px 9px; cursor: pointer; flex-shrink: 0; transition: all 0.12s; white-space: nowrap; }
+.fail-all-btn:hover { background: #8a3a3a; color: #fff; }
+.fail-all-btn.all-failed { background: #8a3a3a; color: #fff; }
+.tier-body { display: none; border-top: 1px solid var(--sandstone); }
+.tier-body.open { display: block; }
+.skill-row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #f0ece4; }
+.skill-row:last-child { border-bottom: none; }
+.skill-row:nth-child(even) { background: #fafaf8; }
+.skill-name { flex: 1; font-size: 13px; color: var(--onyx); line-height: 1.4; font-family: var(--font-body); font-weight: 400; cursor: default; }
+.skill-name[contenteditable="true"] { color: var(--onyx); font-size: 13px; font-family: var(--font-body); font-weight: 400; cursor: text; outline: none; border: none; background: none; -webkit-font-smoothing: antialiased; }
+.skill-delete-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--taupe); padding: 2px 4px; border-radius: 3px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s, color 0.15s; }
+.skill-row:hover .skill-delete-btn { opacity: 1; }
+.skill-delete-btn:hover { color: #c0392b; }
+body.form-locked .skill-delete-btn { display: none; }
+body.form-locked .add-skill-btn { display: none; }
+.skill-name[contenteditable="true"]:empty:before { content: "Enter competency description…"; color: var(--taupe); font-style: italic; pointer-events: none; }
+.skill-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.skill-btn { width: 32px; height: 28px; border: 1.5px solid var(--sandstone); background: var(--white); border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
+.skill-btn:hover { border-color: var(--earth); }
+.skill-btn.can-do { background: #d4edda; border-color: #2d6a3f; color: #2d6a3f; }
+.skill-btn.cannot-do { background: #fde8e8; border-color: #c0392b; color: #c0392b; }
+.add-skill-btn { font-family: var(--font-body); font-size: 12px; color: var(--earth); background: none; border: 1px dashed var(--sandstone); border-radius: 4px; padding: 4px 12px; cursor: pointer; width: 100%; text-align: left; margin-top: 4px; transition: all 0.12s; }
+.add-skill-btn:hover { border-color: var(--earth); background: #faf8f4; }
+
+/* Gate summary */
+.gate-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.gate-box { padding: 14px 16px; border-radius: var(--radius); border: 1.5px solid var(--sandstone); text-align: center; }
+.gate-box.pass { background: #d4edda; border-color: #2d6a3f; }
+.gate-box.fail { background: #fde8e8; border-color: #e74c3c; }
+.gate-box.incomplete { background: var(--alabaster); }
+.gate-box-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; color: var(--earth); }
+.gate-box-status { font-size: 16px; font-weight: 700; }
+.gate-box.pass .gate-box-status { color: #2d6a3f; }
+.gate-box.fail .gate-box-status { color: #c0392b; }
+.gate-box.incomplete .gate-box-status { color: var(--taupe); }
+.gate-box-sub { font-size: 11px; color: var(--taupe); margin-top: 3px; }
+
+/* Signature block */
+.sig-block { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* Submit */
+.submit-section { background: var(--white); border: 1px solid var(--sandstone); border-radius: var(--radius); padding: 24px; margin-top: 20px; }
+.submit-section h2 { font-family: var(--font-head); font-weight: 400; font-size: 20px; margin-bottom: 18px; }
+.submit-btn { background: var(--earth); color: var(--white); border: none; border-radius: var(--radius); padding: 14px 32px; font-family: var(--font-body); font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; letter-spacing: 0.03em; transition: background 0.2s; margin-top: 8px; }
+.submit-btn:hover { background: var(--onyx); }
+.submit-btn:disabled { background: var(--sandstone); cursor: not-allowed; }
+.preview-pdf-btn { background: none; border: 1px solid var(--sandstone); color: var(--earth); border-radius: var(--radius); padding: 9px 20px; font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; width: 100%; margin-top: 8px; transition: all 0.15s; }
+.preview-pdf-btn:hover { border-color: var(--earth); background: var(--earth); color: var(--white); }
+.preview-pdf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Dividers */
+.section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--earth); padding: 8px 0 6px; border-bottom: 1px solid var(--sandstone); margin-bottom: 14px; }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--white); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+.modal h3 { font-family: var(--font-head); font-weight: 400; font-size: 20px; margin-bottom: 6px; }
+.modal-hint { font-size: 13px; color: var(--taupe); margin-bottom: 20px; }
+.modal-field { margin-bottom: 14px; }
+.modal-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--earth); margin: 18px 0 10px; border-top: 1px solid var(--sandstone); padding-top: 14px; }
+.modal-actions { margin-top: 20px; display: flex; gap: 10px; }
+.btn-save { background: var(--earth); color: var(--white); border: none; padding: 10px 20px; border-radius: var(--radius); cursor: pointer; font-family: var(--font-body); font-size: 14px; font-weight: 500; }
+.btn-cancel { background: none; border: 1px solid var(--sandstone); padding: 10px 20px; border-radius: var(--radius); cursor: pointer; font-family: var(--font-body); font-size: 14px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--onyx); color: var(--white); padding: 14px 20px; border-radius: var(--radius); font-size: 14px; z-index: 200; opacity: 0; transform: translateY(10px); transition: all 0.3s; max-width: 380px; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: #3a7a4a; }
+.toast.error { background: #8a3a3a; }
+
+/* Footer */
+.site-footer { background: var(--onyx); color: rgba(255,255,255,0.35); text-align: center; padding: 18px; font-size: 12px; margin-top: 48px; }
+.site-footer img { height: 20px; opacity: 0.3; vertical-align: middle; margin-right: 8px; }
+
+/* Mobile */
+@media (max-width: 640px) {
+  .info-grid, .narrative-grid, .sig-block, .gate-summary { grid-template-columns: 1fr; }
+  .score-summary { grid-template-columns: 1fr 1fr; }
+  .sum-block:nth-child(3) { display: none; }
+  .site-header { padding: 12px 14px; }
+  .site-header h1 { font-size: 16px; }
+  .main { padding: 14px 12px 60px; }
+  .score-btn { width: 30px; height: 30px; font-size: 13px; }
+  .band-block { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <img src="logo-white.png" alt="Smile Haus" onerror="this.style.display='none'">
+  <h1>RCM Manager Annual Review</h1>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="template-btn" onclick="saveTemplate()" title="Save current competencies as template">&#128190; Save Template</button>
+    <button class="reset-btn" onclick="confirmReset()">&#8635; Reset</button>
+    <button class="edit-lock-btn" id="editLockBtn" onclick="toggleLock()">&#128274; Lock</button>
+    <button class="settings-btn" onclick="openSettingsGated()">&#9881; Settings</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Sticky score summary -->
+  <div class="score-summary">
+    <div class="sum-block">
+      <div class="sum-label">Part I — KPIs</div>
+      <div class="sum-value"><span id="p1Total">0</span><span style="font-size:12px;opacity:0.4">/<span id="p1Max">40</span></span></div>
+    </div>
+    <div class="sum-block">
+      <div class="sum-label">Part II — Performance</div>
+      <div class="sum-value"><span id="p2Total">0</span><span style="font-size:12px;opacity:0.4">/75</span></div>
+    </div>
+    <div class="sum-block">
+      <div class="sum-label">Total Score</div>
+      <div class="sum-value highlight"><span id="totalScore">0</span><span style="font-size:12px;opacity:0.4">/<span id="totalMax">115</span></span></div>
+    </div>
+    <div class="band-block">
+      <div class="band-name" id="bandName" style="opacity:0.35;">Fill in scores below</div>
+      <div class="raise-preview" id="raisePreview">—</div>
+      <div class="new-rate" id="newRatePreview">Select level &amp; enter scores</div>
+    </div>
+  </div>
+
+  <!-- Employee Info -->
+  <div class="card">
+    <div class="card-header"><h2>Employee Information</h2></div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div><label class="field-label">Manager Name</label><input type="text" id="daName" placeholder="Full name" oninput="saveFormState()"></div>
+        <div>
+          <label class="field-label">Primary Office</label>
+          <select id="homeOffice" onchange="saveFormState()">
+            <option value="">— Select office —</option>
+            <option>Georgetown</option><option>On the Square</option><option>Austin</option>
+            <option>Implant Center</option><option>Medical Parkway</option><option>Arboretum</option>
+            <option>Pflugerville</option><option>South Austin</option>
+            <option>New Braunfels Dental Arts</option><option>Anderson Mill</option>
+          </select>
+        </div>
+        <div><label class="field-label">Current Hourly Rate ($)</label><input type="number" id="currentRate" placeholder="e.g. 25.00" step="0.25" min="18" max="45" oninput="onRateChange()"></div>
+        <div>
+          <label class="field-label">Current Level <span id="levelAutoLabel" style="font-size:10px;font-weight:400;color:var(--taupe);text-transform:none;letter-spacing:0;margin-left:4px;"></span></label>
+          <select id="currentTier" onchange="onLevelChange()">
+            <option value="">— Select level —</option>
+            <option value="L1">L1 — $22–27/hr — Core RCM Operations</option>
+            <option value="L2">L2 — $28–35/hr — Management &amp; Leadership</option>
+          </select>
+        </div>
+        <div><label class="field-label">Review Period</label><input type="text" id="reviewPeriod" placeholder="e.g. Jan 2025 – Dec 2025" oninput="saveFormState()"></div>
+        <div><label class="field-label">Review Date</label><input type="date" id="reviewDate" oninput="saveFormState()"></div>
+        <div><label class="field-label">Reviewer Name</label><input type="text" id="reviewerName" placeholder="Supervisor / Director name" oninput="saveFormState()"></div>
+        <div><label class="field-label">Hire Date</label><input type="date" id="hireDate" oninput="saveFormState()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rating scale -->
+  <div class="scale-bar">
+    <b>Rating Scale</b> &nbsp;·&nbsp; <b>1</b> Does Not Meet &nbsp;·&nbsp; <b>2</b> Partially Meets &nbsp;·&nbsp; <b>3</b> Meets Expectations &nbsp;·&nbsp; <b>4</b> Exceeds &nbsp;·&nbsp; <b>5</b> Outstanding
+  </div>
+
+  <!-- Part I: KPIs -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Part I — KPI Performance</h2>
+      <span class="pts" id="p1Header">/ 40 pts</span>
+    </div>
+    <div style="padding:0">
+      <table class="kpi-table">
+        <thead><tr>
+          <th style="width:48%">KPI</th>
+          <th style="width:18%;text-align:center">Target</th>
+          <th style="width:34%;text-align:center">Score (1–5)</th>
+        </tr></thead>
+        <tbody id="kpiBody"></tbody>
+      </table>
+      <div class="subtotal-row">Part I Total: <span id="kpiSubtotal">0</span> / <span id="kpiDenom">40</span></div>
+      <div class="section-notes">
+        <label class="field-label">KPI Notes — Actuals, Data Sources, Context</label>
+        <textarea id="kpiNotes" placeholder="Pull actuals from Oryx reports, ClickUp AR aging data, payer portals. Note any extenuating circumstances, staffing gaps, or payer-specific anomalies."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Part II: In-Office Performance -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Part II — In-Office Performance</h2>
+      <span class="pts">/ 75 pts (15 criteria × 5)</span>
+    </div>
+    <div style="padding:0" id="perfBody"></div>
+  </div>
+
+  <!-- Narrative -->
+  <div class="card">
+    <div class="card-header"><h2>Review Narrative</h2></div>
+    <div class="card-body">
+      <div class="narrative-grid">
+        <div class="narrative-field">
+          <label class="field-label">Strengths</label>
+          <textarea id="strengths" placeholder="What does this manager do exceptionally well? Be specific — cite KPI improvements, team wins, process changes led."></textarea>
+        </div>
+        <div class="narrative-field">
+          <label class="field-label">Growth Areas</label>
+          <textarea id="growthAreas" placeholder="Where does this manager need to develop? Be constructive and specific."></textarea>
+        </div>
+        <div class="narrative-field narrative-full">
+          <label class="field-label">Goals for Next 12 Months</label>
+          <textarea id="goals" placeholder="List 2–4 specific, measurable goals: e.g. 'Reduce AR Days to ≤ 28 by Q3', 'Complete monthly audits for all 10 offices by the 15th'."></textarea>
+        </div>
+        <div class="narrative-field narrative-full">
+          <label class="field-label">Employee Response / Comments</label>
+          <textarea id="employeeComments" placeholder="Space for the manager to add their own perspective, questions, or acknowledgment after the review meeting."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competency Checklist -->
+  <div class="card">
+    <div class="card-header">
+      <h2>RCM Competency Checklist</h2>
+      <span class="pts">Gate A · Gate B</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--taupe);margin-bottom:14px;">
+        Mark each competency: <strong style="color:#2d6a3f">✓ Can do</strong> or <strong style="color:#c0392b">✗ Cannot do</strong>.
+        Leave blank if not yet evaluated. <strong>Gate A</strong> = all Level 1 (core operations) competencies are ✓.
+        <strong>Gate B</strong> = all Level 2 (management) competencies are also ✓, required for level advancement.
+      </p>
+      <div class="tier-accordion" id="tierAccordion"></div>
+      <div class="gate-summary">
+        <div class="gate-box incomplete" id="gateABox">
+          <div class="gate-box-label">Gate A — Core Operations Mastery</div>
+          <div class="gate-box-status" id="gateAStatus">Select level above</div>
+          <div class="gate-box-sub" id="gateASub">Required for any raise</div>
+        </div>
+        <div class="gate-box incomplete" id="gateBBox">
+          <div class="gate-box-label">Gate B — Management Mastery</div>
+          <div class="gate-box-status" id="gateBStatus">Select level above</div>
+          <div class="gate-box-sub" id="gateBSub">Required for L2 advancement + score ≥ 85</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-section">
+    <h2>Signatures &amp; Submission</h2>
+
+    <div class="section-divider">Employee</div>
+    <div class="sig-block">
+      <div>
+        <label class="field-label">Employee Signature (typed name)</label>
+        <input type="text" id="employeeSig" placeholder="Manager types their full name to acknowledge this review">
+      </div>
+      <div>
+        <label class="field-label">Date</label>
+        <input type="date" id="employeeSigDate">
+      </div>
+    </div>
+
+    <div class="section-divider">Reviewer / Director</div>
+    <div class="sig-block">
+      <div>
+        <label class="field-label">Reviewer Signature (typed name)</label>
+        <input type="text" id="omSignature" placeholder="Reviewer types their full name">
+      </div>
+      <div>
+        <label class="field-label">Date</label>
+        <input type="date" id="submitDate">
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--taupe);margin-bottom:4px;">
+      Submitting emails a raise summary to leadership and creates a ClickUp approval task.
+      Configure both via <strong>Settings</strong> (gear icon, top right).
+    </p>
+    <button class="preview-pdf-btn" id="previewPdfBtn" onclick="downloadPreviewPDF()">&#128196; Download PDF Preview</button>
+    <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">Submit for Approval</button>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <img src="logo-white.png" alt="" onerror="this.style.display='none'">
+  Smile Haus Dental &nbsp;·&nbsp; RCM Manager Annual Review System &nbsp;·&nbsp; Confidential
+</footer>
+
+<!-- Reset modal -->
+<div class="modal-overlay" id="resetModal" onclick="if(event.target===this)closeResetModal()">
+  <div class="modal" style="max-width:380px;text-align:center;">
+    <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
+    <h3 style="margin:0 0 10px;">Reset Form?</h3>
+    <p style="font-size:14px;color:#877765;margin:0 0 24px;">This will clear all scores, selections, and entered data. This cannot be undone.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="btn-cancel" onclick="closeResetModal()">Cancel</button>
+      <button onclick="resetForm()" style="font-family:var(--font-body);font-size:13px;font-weight:600;background:#c0392b;color:#fff;border:none;border-radius:var(--radius);padding:8px 22px;cursor:pointer;">Yes, Reset Everything</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h3>&#9881; Settings</h3>
+    <p class="modal-hint">Worker URL is pre-configured. Only change if redirected by IT.</p>
+    <div class="modal-section-label">Backend Worker URL</div>
+    <div class="modal-field"><label class="field-label">Worker URL</label><input type="text" id="cfg_worker_url" placeholder="https://sh-da-review-worker.smilehaus.workers.dev/submit"></div>
+    <div style="margin-top:8px;">
+      <button class="btn-cancel" id="cuTestBtn" onclick="testWorker()" style="font-size:12px;padding:5px 12px;">&#128337; Test Connection</button>
+      <div id="cuTestResult" style="font-size:12px;margin-top:6px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveSettings()">Save</button>
+      <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN modal -->
+<div class="modal-overlay" id="pinModal" onclick="if(event.target===this)closePinModal()">
+  <div class="modal" style="max-width:340px;">
+    <h3>&#9998; Edit Form</h3>
+    <p class="modal-hint">Enter the PIN to unlock editing.</p>
+    <div class="modal-field">
+      <label class="field-label">PIN</label>
+      <input type="password" id="pinInput" placeholder="••••••••••••" onkeydown="if(event.key==='Enter')submitPin()" autocomplete="off">
+      <div class="pin-error" id="pinError">Incorrect PIN. Try again.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="submitPin()">Unlock</button>
+      <button class="btn-cancel" onclick="closePinModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+const LEVELS = {
+  L1: { floor: 22, ceiling: 27, x: 0.022, next: 'L2', label: 'Core RCM Operations',    rate: '$22–27/hr' },
+  L2: { floor: 28, ceiling: 35, x: 0.025, next: null,  label: 'Management & Leadership', rate: '$28–35/hr' },
+};
+
+const LEVEL_SKILLS = {
+  L1: [
+    'Submits clean claims within required filing timelines',
+    'Posts insurance & patient payments accurately; reconciles daily',
+    'Works denials and appeals independently',
+    'Manages patient billing inquiries and payment arrangements',
+    'Pulls and prioritizes aging reports; follows up on outstanding AR',
+    'Completes insurance verifications in Oryx per SOP',
+    'Navigates all major payer portals (Availity, Medicaid, private insurers)',
+    'Maintains HIPAA compliance and patient data security standards',
+    'Documents all billing actions and follow-ups in ClickUp per SOP',
+    'Generates production and collection reports from Oryx',
+  ],
+  L2: [
+    'Conducts structured audits of team members\' billing and collections work',
+    'Onboards and trains new RCM staff to full proficiency',
+    'Delivers actionable coaching and performance feedback regularly',
+    'Manages team KPI dashboards; delivers weekly reporting to leadership',
+    'Identifies and escalates credentialing and payer contract issues',
+    'Leads process improvement initiatives for RCM workflows',
+    'Distributes and balances workload effectively across the team',
+    'Serves as primary liaison between RCM, OMs, and clinical providers',
+    'Represents RCM in leadership and cross-functional meetings',
+    'Owns multi-office AR targets and drives team accountability toward goals',
+  ],
+};
+
+const KPIS = [
+  { id:'kpi1', name:'Collection Rate',                 sub:'Team average across all offices',     target:'≥ 95%'         },
+  { id:'kpi2', name:'AR Days',                         sub:'Average days outstanding, team',      target:'< 30 days'     },
+  { id:'kpi3', name:'AR Over 30 Days Balance',         sub:'Per-office outstanding balance',      target:'< $20,000'     },
+  { id:'kpi4', name:'Clean Claim Rate',                sub:'First-pass acceptance by payers',     target:'≥ 95%'         },
+  { id:'kpi5', name:'Denial Resolution Turnaround',    sub:'Denials worked within SLA',           target:'≤ 5 bus. days' },
+  { id:'kpi6', name:'Audit Completion Rate',           sub:'Required team audits on schedule',    target:'100%'          },
+  { id:'kpi7', name:'Team Training Completion',        sub:'All team members current',            target:'100%'          },
+  { id:'kpi8', name:'Reporting Accuracy & Timeliness', sub:'Weekly / monthly reports on time',   target:'100%'          },
+];
+
+const PERF_SECTIONS = [
+  { id:'A', title:'Leadership & Team Development', items:[
+    { id:'a1', name:'Team Accountability',     desc:'Sets clear expectations; holds team to KPIs; addresses performance gaps without micromanaging.' },
+    { id:'a2', name:'Training & Onboarding',   desc:'Brings new RCM staff to full proficiency efficiently; keeps training documentation current.' },
+    { id:'a3', name:'Coaching & Feedback',     desc:'Delivers regular, constructive feedback. Team members consistently improve under their guidance.' },
+    { id:'a4', name:'Escalation Handling',     desc:'Resolves complex billing, payer, and patient escalations decisively and within SLA.' },
+    { id:'a5', name:'Cross-Office Coordination', desc:'Collaborates effectively with OMs and teams across all 10 Smile Haus offices.' },
+  ]},
+  { id:'B', title:'Revenue Cycle Oversight', items:[
+    { id:'b1', name:'Claims & Billing Management',        desc:'Oversees clean claim submission process; catches errors before they become denials.' },
+    { id:'b2', name:'Insurance Verification Compliance',  desc:'Ensures all IVs are completed accurately and on schedule per SOP for every office.' },
+    { id:'b3', name:'Denial Management',                  desc:'Drives team denial rate down; ensures appeals are filed timely, accurately, and tracked.' },
+    { id:'b4', name:'Patient Collections',                desc:'Manages patient-facing billing communication; team maintains collection rate ≥ 95%.' },
+    { id:'b5', name:'Payer & Credentialing Awareness',    desc:'Stays current on payer policies, EOBs, and credentialing status for all providers.' },
+  ]},
+  { id:'C', title:'Systems, Compliance & Growth', items:[
+    { id:'c1', name:'SOP Development & Adherence',  desc:'Follows and actively maintains RCM SOPs; updates documentation as processes evolve.' },
+    { id:'c2', name:'Technology Proficiency',        desc:'Expert in Oryx, ClickUp, payer portals, and reporting tools. Actively trains team on systems.' },
+    { id:'c3', name:'Data Integrity & Reporting',   desc:'Delivers accurate, timely KPI reports; catches and corrects data discrepancies proactively.' },
+    { id:'c4', name:'Compliance & HIPAA',            desc:'Zero compliance violations. Proactively identifies risks and remediates before escalation.' },
+    { id:'c5', name:'Initiative & Process Improvement', desc:'Identifies inefficiencies; proposes and implements improvements with measurable results.' },
+  ]},
+];
+
+// ─── CLICKUP CUSTOM FIELD IDs ────────────────────────────────────────────────
+// Shared with DA review list — tier-specific fields omitted for RCM Manager form
+
+const CF = {
+  DA_NAME:      '7e99e9cd-745c-47d9-865d-32a408855e6b',
+  HOME_OFFICE:  '9c6bbd3b-65af-4f58-8db2-12ffc1c977f8',
+  HOME_OFFICE_OPTS: {
+    'Georgetown':'e5209636-677e-40bd-ba5a-cdd43a1a76aa','On the Square':'7178f463-dfb2-4c54-9ba1-a4515a4718ff',
+    'Austin':'5e0e7c00-66f3-4763-b2d5-b299b66e8d8e','Implant Center':'51fcc93d-6e08-433c-b242-50a1260f3f90',
+    'Medical Parkway':'974e0f7b-3c37-4c69-9940-cf8579e39348','Arboretum':'6eb75682-7de5-4d0e-8ff7-85809a52b807',
+    'Pflugerville':'c9870d6f-4cbc-4511-a53b-e610281f567f','South Austin':'c826cbb5-6f1c-4cad-b919-bbdf8f7635ec',
+    'New Braunfels Dental Arts':'a2ea3512-587f-456f-a622-c45cc434ba2b','Anderson Mill':'434453ee-89c6-4eb9-a8c0-14d7e71a7688',
+  },
+  CURRENT_RATE:  '9ba6e30b-20f6-4b34-9a26-c8683def15b4',
+  REVIEW_PERIOD: '96d77be1-08b9-4192-82fb-8ca1d8229f72',
+  REVIEWER_NAME: '303a63c3-6e10-46d6-8d29-3f13c52cca0e',
+  REVIEW_DATE:   '933ff3b7-a4db-43d7-ad5d-99ef49b986de',
+  KPI_SCORE:     '70357de3-d5f6-4f73-b7b8-c4043e3b2712',
+  PERF_SCORE:    '12bd1ea2-ead4-452b-93b2-148cbbb2543e',
+  TOTAL_SCORE:   '77c85b62-11ec-4ee9-a28a-7afce33faae8',
+  GATE_A:        '5e5b6db3-84ae-4ff7-a49f-1bd96353d04c',
+  GATE_B:        'e5399d96-fe8b-470a-8d47-b3eb8ec0c519',
+  RAISE_AMOUNT:  '938d40cb-8bea-4414-b6e7-f79a88bb806a',
+  NEW_RATE:      'fcf08bac-5bb8-493b-8a1a-0c32ebd51a1b',
+  OUTCOME_BAND:  'c55b9bc8-770a-4333-90a4-626080b348bd',
+  BAND_OPTS: {
+    'PIP':'5b1113e4-fabb-4d2f-a925-e24a0dc4a592',
+    'Coaching Plan':'710f9d5e-0763-41a3-a8c5-aae7c321ccda',
+    'Within-Tier Raise':'319fabd9-74c9-4cc5-8b12-6c005fb52d87',
+    'Promote':'f12ee967-ce2a-42b8-91c6-c0af12906c54',
+  },
+};
+
+function buildCustomFields() {
+  const f   = id => document.getElementById(id)?.value || '';
+  const t   = id => (document.getElementById(id)?.textContent || '').replace(/[^0-9.-]/g,'');
+  const num = id => { const v = parseFloat(t(id)); return isNaN(v) ? null : v; };
+
+  const office = f('homeOffice');
+  const band   = (document.getElementById('bandName')?.textContent || '').trim();
+  const gateA  = (document.getElementById('gateAStatus')?.textContent || '').includes('✓');
+  const gateB  = (document.getElementById('gateBStatus')?.textContent || '').includes('✓');
+  const reviewDateVal = f('reviewDate');
+  const reviewDateMs  = reviewDateVal ? new Date(reviewDateVal).getTime() : null;
+
+  const fields = [
+    { id: CF.DA_NAME,       value: f('daName') },
+    { id: CF.CURRENT_RATE,  value: parseFloat(f('currentRate')) || null },
+    { id: CF.REVIEW_PERIOD, value: f('reviewPeriod') },
+    { id: CF.REVIEWER_NAME, value: f('reviewerName') },
+    { id: CF.KPI_SCORE,     value: num('p1Total') },
+    { id: CF.PERF_SCORE,    value: num('p2Total') },
+    { id: CF.TOTAL_SCORE,   value: num('totalScore') },
+    { id: CF.GATE_A,        value: gateA },
+    { id: CF.GATE_B,        value: gateB },
+    { id: CF.RAISE_AMOUNT,  value: num('raisePreview') },
+    { id: CF.NEW_RATE,      value: num('newRatePreview') },
+  ];
+  if (CF.HOME_OFFICE_OPTS[office]) fields.push({ id: CF.HOME_OFFICE, value: CF.HOME_OFFICE_OPTS[office] });
+  if (CF.BAND_OPTS[band])          fields.push({ id: CF.OUTCOME_BAND, value: CF.BAND_OPTS[band] });
+  if (reviewDateMs)                fields.push({ id: CF.REVIEW_DATE,  value: reviewDateMs });
+
+  return fields.filter(f => f.value !== null && f.value !== '' && f.value !== undefined);
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+
+const scores = {};
+const skillState = {};
+let highestPromoLevel = null; // set by recalc()
+
+// ─── RENDER: KPIs ─────────────────────────────────────────────────────────────
+
+function renderKPIs() {
+  document.getElementById('kpiBody').innerHTML = KPIS.map(k => `
+    <tr>
+      <td>
+        <div class="kpi-name" contenteditable="false" data-editable id="kpiName_${k.id}">${k.name}</div>
+        <div class="kpi-sub" contenteditable="false" data-editable id="kpiSub_${k.id}">${k.sub}</div>
+      </td>
+      <td style="text-align:center;">
+        <input class="kpi-target-input" id="kpiTarget_${k.id}" value="${k.target}" disabled>
+      </td>
+      <td>
+        <div class="score-group">
+          ${[1,2,3,4,5].map(v => `<button class="score-btn" data-id="${k.id}" data-val="${v}" onclick="setScore('${k.id}',${v})">${v}</button>`).join('')}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ─── RENDER: Performance ──────────────────────────────────────────────────────
+
+function renderPerf() {
+  document.getElementById('perfBody').innerHTML = PERF_SECTIONS.map(sec => `
+    <div class="subsection-label">${sec.id}. &nbsp;${sec.title}</div>
+    <table class="perf-table">
+      <thead><tr>
+        <th style="width:62%">Performance Standard</th>
+        <th class="c" style="width:38%">Score (1–5)</th>
+      </tr></thead>
+      <tbody>
+        ${sec.items.map(item => `
+          <tr>
+            <td>
+              <div class="crit-name" contenteditable="false" data-editable id="critName_${item.id}">${item.name}</div>
+              <div class="crit-desc" contenteditable="false" data-editable id="critDesc_${item.id}">${item.desc}</div>
+            </td>
+            <td>
+              <div class="score-group">
+                ${[1,2,3,4,5].map(v => `<button class="score-btn" data-id="${item.id}" data-val="${v}" onclick="setScore('${item.id}',${v})">${v}</button>`).join('')}
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="subtotal-row">Subsection ${sec.id} Total: <span id="sub${sec.id}Total">0</span> / 25</div>
+    <div class="section-notes">
+      <label class="field-label">Subsection ${sec.id} Notes</label>
+      <textarea id="notes${sec.id}" placeholder="Additional context, specific examples, or observations for this section…"></textarea>
+    </div>`).join('');
+}
+
+// ─── RENDER: Level Accordion ──────────────────────────────────────────────────
+
+function renderLevelAccordion() {
+  const accordion = document.getElementById('tierAccordion');
+  const levelKeys = ['L1', 'L2'];
+  accordion.innerHTML = levelKeys.map(key => {
+    const level = LEVELS[key];
+    const skills = LEVEL_SKILLS[key];
+    return `
+    <div class="tier-row" id="tierRow_${key}">
+      <div class="tier-header" id="tierToggle_${key}">
+        <div class="tier-header-left">
+          <span class="tier-badge" id="tierBadge_${key}">${key}</span>
+          <span class="tier-title" contenteditable="false" data-editable id="tierTitle_${key}">${level.label}</span>
+          <span class="tier-rate" id="tierRate_${key}">${level.rate}</span>
+          <span class="tier-gate-status" id="tierGateStatus_${key}"></span>
+        </div>
+        <div class="tier-header-right">
+          <button class="pass-all-btn" id="passAllBtn_${key}" onclick="passAllSkills('${key}')">✓ Pass All</button>
+          <button class="fail-all-btn" id="failAllBtn_${key}" onclick="failAllSkills('${key}')">✗ Not Yet Passed</button>
+          <button class="tier-expand-btn" id="tierChevron_${key}" onclick="toggleTier('${key}')" title="Expand/collapse">›</button>
+        </div>
+      </div>
+      <div class="tier-body" id="tierBody_${key}">
+        ${skills.map((skill, idx) => `
+          <div class="skill-row">
+            <span class="skill-name" contenteditable="false" data-editable id="skillName_${key}_${idx}">${skill}</span>
+            <div class="skill-btns">
+              <button class="skill-btn" id="skill_${key}_${idx}_can" title="Can do" onclick="setSkill('${key}',${idx},'can')">✓</button>
+              <button class="skill-btn" id="skill_${key}_${idx}_cannot" title="Cannot do" onclick="setSkill('${key}',${idx},'cannot')">✗</button>
+            </div>
+            <button class="skill-delete-btn" title="Remove this competency" onclick="deleteSkill(this)">🗑</button>
+          </div>`).join('')}
+        <div class="add-skill-row" style="padding:6px 12px 10px;">
+          <button class="add-skill-btn" onclick="addSkill('${key}')">+ Add competency / task</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleTier(key) {
+  const body    = document.getElementById(`tierBody_${key}`);
+  const chevron = document.getElementById(`tierChevron_${key}`);
+  body.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+function openTier(key) {
+  const body    = document.getElementById(`tierBody_${key}`);
+  const chevron = document.getElementById(`tierChevron_${key}`);
+  if (body) { body.classList.add('open'); chevron.classList.add('open'); }
+}
+
+// ─── SCORING ─────────────────────────────────────────────────────────────────
+
+function setScore(id, val) {
+  scores[id] = val === 'na' ? 'na' : parseInt(val);
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(btn => {
+    btn.classList.toggle('active', String(btn.dataset.val) === String(val));
+  });
+  recalc();
+  saveFormState();
+}
+
+function passAllSkills(levelKey) {
+  const indices = getSkillIndices(levelKey);
+  const allAlreadyPassed = indices.every(idx => skillState[`${levelKey}_${idx}`] === 'can');
+  indices.forEach(idx => {
+    skillState[`${levelKey}_${idx}`] = allAlreadyPassed ? null : 'can';
+    const canBtn    = document.getElementById(`skill_${levelKey}_${idx}_can`);
+    const cannotBtn = document.getElementById(`skill_${levelKey}_${idx}_cannot`);
+    if (canBtn)    canBtn.className    = 'skill-btn' + (!allAlreadyPassed ? ' can-do' : '');
+    if (cannotBtn) cannotBtn.className = 'skill-btn';
+  });
+  const btn = document.getElementById(`passAllBtn_${levelKey}`);
+  if (btn) btn.classList.toggle('all-passed', !allAlreadyPassed);
+  recalc(); saveFormState();
+}
+
+function failAllSkills(levelKey) {
+  const indices = getSkillIndices(levelKey);
+  const allAlreadyFailed = indices.every(idx => skillState[`${levelKey}_${idx}`] === 'cannot');
+  indices.forEach(idx => {
+    skillState[`${levelKey}_${idx}`] = allAlreadyFailed ? null : 'cannot';
+    const canBtn    = document.getElementById(`skill_${levelKey}_${idx}_can`);
+    const cannotBtn = document.getElementById(`skill_${levelKey}_${idx}_cannot`);
+    if (canBtn)    canBtn.className = 'skill-btn';
+    if (cannotBtn) cannotBtn.className = 'skill-btn' + (!allAlreadyFailed ? ' cannot-do' : '');
+  });
+  const btn = document.getElementById(`failAllBtn_${levelKey}`);
+  if (btn) btn.classList.toggle('all-failed', !allAlreadyFailed);
+  const passBtn = document.getElementById(`passAllBtn_${levelKey}`);
+  if (passBtn) passBtn.classList.remove('all-passed');
+  recalc();
+}
+
+function addSkill(levelKey) {
+  const tbody = document.getElementById(`tierBody_${levelKey}`);
+  const idx   = tbody.querySelectorAll('.skill-row').length;
+  const row   = document.createElement('div');
+  row.className = 'skill-row';
+  row.innerHTML = `
+    <span class="skill-name" contenteditable="true" data-editable id="skillName_${levelKey}_${idx}"></span>
+    <div class="skill-btns">
+      <button class="skill-btn" id="skill_${levelKey}_${idx}_can" title="Can do" onclick="setSkill('${levelKey}',${idx},'can')">✓</button>
+      <button class="skill-btn" id="skill_${levelKey}_${idx}_cannot" title="Cannot do" onclick="setSkill('${levelKey}',${idx},'cannot')">✗</button>
+    </div>
+    <button class="skill-delete-btn" title="Remove this competency" onclick="deleteSkill(this)">🗑</button>`;
+  const addRow = tbody.querySelector('.add-skill-row');
+  tbody.insertBefore(row, addRow);
+  if (!tbody.classList.contains('open')) toggleTier(levelKey);
+  autoSaveCustomSkills();
+  setTimeout(() => document.getElementById(`skillName_${levelKey}_${idx}`)?.focus(), 50);
+}
+
+function deleteSkill(btn) {
+  const row = btn.closest('.skill-row');
+  if (!row) return;
+  const nameEl = row.querySelector('.skill-name');
+  if (nameEl?.id) {
+    const parts = nameEl.id.split('_');
+    if (parts.length >= 3) delete skillState[`${parts[1]}_${parts[2]}`];
+  }
+  row.remove();
+  autoSaveCustomSkills();
+  saveFormState();
+}
+
+function setSkill(levelKey, idx, state) {
+  const k = `${levelKey}_${idx}`;
+  skillState[k] = skillState[k] === state ? null : state;
+  const canBtn    = document.getElementById(`skill_${levelKey}_${idx}_can`);
+  const cannotBtn = document.getElementById(`skill_${levelKey}_${idx}_cannot`);
+  if (canBtn)    canBtn.className    = 'skill-btn' + (skillState[k] === 'can'    ? ' can-do'    : '');
+  if (cannotBtn) cannotBtn.className = 'skill-btn' + (skillState[k] === 'cannot' ? ' cannot-do' : '');
+  recalc();
+  saveFormState();
+}
+
+// ─── CALCULATION ─────────────────────────────────────────────────────────────
+
+function getSkillIndices(levelKey) {
+  const body = document.getElementById(`tierBody_${levelKey}`);
+  if (!body) return (LEVEL_SKILLS[levelKey] || []).map((_, i) => i);
+  const indices = [];
+  body.querySelectorAll(`[id^="skill_${levelKey}_"][id$="_can"]`).forEach(btn => {
+    const m = btn.id.match(new RegExp(`skill_${levelKey}_(\\d+)_can`));
+    if (m) indices.push(parseInt(m[1]));
+  });
+  return indices.length ? indices : (LEVEL_SKILLS[levelKey] || []).map((_, i) => i);
+}
+
+function getLevelGateStatus(levelKey) {
+  const indices = getSkillIndices(levelKey);
+  let allPass = true, anyFail = false;
+  indices.forEach(idx => {
+    const state = skillState[`${levelKey}_${idx}`];
+    if (state === 'can') { /* good */ }
+    else if (state === 'cannot') { anyFail = true; allPass = false; }
+    else { allPass = false; }
+  });
+  if (allPass && indices.length > 0) return 'pass';
+  if (anyFail) return 'fail';
+  return 'incomplete';
+}
+
+function recalc() {
+  // Part I
+  let p1 = 0, p1Max = 0;
+  KPIS.forEach(k => {
+    if (scores[k.id] === 'na') return;
+    p1Max += 5;
+    if (scores[k.id]) p1 += scores[k.id];
+  });
+  if (p1Max === 0) p1Max = 40;
+
+  // Part II
+  let p2 = 0;
+  PERF_SECTIONS.forEach(sec => {
+    let st = 0;
+    sec.items.forEach(item => { st += scores[item.id] || 0; });
+    const el = document.getElementById(`sub${sec.id}Total`);
+    if (el) el.textContent = st;
+    p2 += st;
+  });
+
+  const total = p1 + p2, totalMax = p1Max + 75;
+
+  document.getElementById('p1Total').textContent   = p1;
+  document.getElementById('p1Max').textContent     = p1Max;
+  document.getElementById('kpiSubtotal').textContent = p1;
+  document.getElementById('kpiDenom').textContent  = p1Max;
+  document.getElementById('p1Header').textContent  = `/ ${p1Max} pts`;
+  document.getElementById('p2Total').textContent   = p2;
+  document.getElementById('totalScore').textContent = total;
+  document.getElementById('totalMax').textContent  = totalMax;
+
+  const { band, cls } = getBand(total);
+  const bandEl = document.getElementById('bandName');
+  bandEl.textContent = band; bandEl.className = 'band-name ' + cls; bandEl.style.opacity = '';
+
+  // Gate calculation
+  const levelKey  = document.getElementById('currentTier').value;
+  const level     = LEVELS[levelKey];
+  const levelKeys = ['L1', 'L2'];
+
+  // Update level badges and gate status indicators
+  levelKeys.forEach(k => {
+    const toggle   = document.getElementById(`tierToggle_${k}`);
+    const badge    = document.getElementById(`tierBadge_${k}`);
+    const statusEl = document.getElementById(`tierGateStatus_${k}`);
+    if (!toggle) return;
+    toggle.className = 'tier-header' + (k === levelKey ? ' current-tier' : level && level.next === k ? ' next-tier' : '');
+    badge.className  = 'tier-badge' + (k === levelKey ? ' current' : level && level.next === k ? ' next' : '');
+    const gs = getLevelGateStatus(k);
+    statusEl.className = 'tier-gate-status ' + (gs === 'pass' ? 'gate-pass' : gs === 'fail' ? 'gate-fail' : '');
+    statusEl.textContent = gs === 'pass' ? '✓ Pass' : gs === 'fail' ? '✗ Not Yet Passed' : '';
+    const passBtn = document.getElementById(`passAllBtn_${k}`);
+    if (passBtn) passBtn.classList.toggle('all-passed', gs === 'pass');
+  });
+
+  // Gate A: all levels from L1 through current must pass
+  let gateA = false, gateBResult = false;
+  highestPromoLevel = null;
+  if (level) {
+    const currentIdx  = levelKeys.indexOf(levelKey);
+    const levelsForA  = levelKeys.slice(0, currentIdx + 1);
+    gateA = levelsForA.every(k => getLevelGateStatus(k) === 'pass');
+
+    // Gate B: walk upward from current+1 through consecutive passing levels
+    let promoIdx = currentIdx + 1;
+    while (promoIdx < levelKeys.length) {
+      if (getLevelGateStatus(levelKeys[promoIdx]) === 'pass') {
+        highestPromoLevel = levelKeys[promoIdx];
+        promoIdx++;
+      } else { break; }
+    }
+    gateBResult = highestPromoLevel !== null;
+  }
+
+  // Update gate boxes
+  const gateABox    = document.getElementById('gateABox');
+  const gateBBox    = document.getElementById('gateBBox');
+  const gateAStatus = document.getElementById('gateAStatus');
+  const gateBStatus = document.getElementById('gateBStatus');
+  const gateASub    = document.getElementById('gateASub');
+  const gateBSub    = document.getElementById('gateBSub');
+
+  if (!level) {
+    gateABox.className = 'gate-box incomplete'; gateAStatus.textContent = 'Select level above';
+    gateBBox.className = 'gate-box incomplete'; gateBStatus.textContent = 'Select level above';
+    gateASub.textContent = 'Required for any raise';
+    gateBSub.textContent = 'Required for L2 advancement + score ≥ 85';
+  } else {
+    gateABox.className = 'gate-box ' + (gateA ? 'pass' : 'fail');
+    gateAStatus.textContent = gateA ? '✓ Passed' : '✗ Not Yet Passed';
+    gateASub.textContent = gateA ? 'Raise eligible based on score' : `Complete all L1 competencies first`;
+
+    if (level.next) {
+      gateBBox.className = 'gate-box ' + (gateBResult ? 'pass' : 'fail');
+      gateBStatus.textContent = gateBResult ? '✓ Passed' : '✗ Not Yet Passed';
+      gateBSub.textContent = gateBResult
+        ? `Advancement to ${highestPromoLevel} eligible (score ≥ 85)`
+        : `Complete all L2 competencies to advance`;
+    } else {
+      gateBBox.className = 'gate-box incomplete';
+      gateBStatus.textContent = 'Highest level';
+      gateBSub.textContent = 'No further level advancement';
+    }
+  }
+
+  // Raise calculation
+  if (!level || total < 70 || !gateA) {
+    const msg = !level ? 'Select level above' : total < 70 ? 'Score below 70 — no raise' : 'Gate A not passed — no raise';
+    document.getElementById('raisePreview').textContent  = '$0.00/hr';
+    document.getElementById('newRatePreview').textContent = msg;
+    return;
+  }
+
+  const promoting      = gateBResult && total >= 85 && highestPromoLevel;
+  const pf             = promoting ? 1.5 : 1.0;
+  const targetLevelObj = promoting ? LEVELS[highestPromoLevel] : level;
+  const baseRate       = parseFloat(document.getElementById('currentRate').value) || level.floor;
+  const rawRaise       = (total - 70) * level.x * pf;
+  let newRate          = Math.min(baseRate + rawRaise, targetLevelObj.ceiling);
+  newRate              = Math.max(newRate, promoting ? targetLevelObj.floor : baseRate);
+  const finalRaise     = newRate - baseRate;
+
+  document.getElementById('raisePreview').textContent  = `+$${finalRaise.toFixed(2)}/hr`;
+  document.getElementById('newRatePreview').textContent = promoting
+    ? `Advancing to ${highestPromoLevel} · New rate: $${newRate.toFixed(2)}/hr`
+    : `New rate: $${newRate.toFixed(2)}/hr`;
+}
+
+function getBand(score) {
+  if (score >= 100) return { band:'Outstanding',             cls:'band-outstanding' };
+  if (score >= 85)  return { band:'Exceeds Expectations',    cls:'band-exceeds'     };
+  if (score >= 70)  return { band:'Meets Expectations',      cls:'band-meets'       };
+  if (score >= 55)  return { band:'Coaching Plan',           cls:'band-coaching'    };
+  return              { band:'PIP / Does Not Meet',       cls:'band-pip'         };
+}
+
+function rateToLevel(rate) {
+  const r = parseFloat(rate);
+  if (isNaN(r) || r <= 0) return '';
+  if (r >= 28) return 'L2';
+  if (r >= 22) return 'L1';
+  return '';
+}
+
+function onRateChange() {
+  const rate  = document.getElementById('currentRate').value;
+  const level = rateToLevel(rate);
+  const sel   = document.getElementById('currentTier');
+  const lbl   = document.getElementById('levelAutoLabel');
+  if (level) { sel.value = level; lbl.textContent = '(auto-detected)'; }
+  else        { lbl.textContent = ''; }
+  onLevelChange(true);
+}
+
+function onLevelChange(fromRate = false) {
+  if (!fromRate) document.getElementById('levelAutoLabel').textContent = '';
+  recalc();
+  saveFormState();
+}
+
+// ─── SUBMIT ──────────────────────────────────────────────────────────────────
+
+async function downloadPreviewPDF() {
+  const btn = document.getElementById('previewPdfBtn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  try {
+    if (!window.jspdf)                  { showToast('jsPDF not loaded — check internet connection.', 'error'); return; }
+    if (typeof html2canvas === 'undefined') { showToast('html2canvas not loaded — check internet connection.', 'error'); return; }
+    const summary = buildSummary();
+    const b64 = await generatePDF(summary);
+    if (!b64 || b64.length < 100) { showToast('PDF came out empty — check console for errors.', 'error'); return; }
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const blob  = new Blob([bytes], { type: 'application/pdf' });
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    const name  = document.getElementById('daName')?.value?.trim() || 'Manager';
+    const date  = document.getElementById('reviewDate')?.value || new Date().toISOString().slice(0,10);
+    a.href = url; a.download = `RCM_Review_${name.replace(/\s+/g,'_')}_${date}.pdf`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('PDF downloaded — review it, then click Submit.', 'success');
+  } catch(e) {
+    console.error('PDF preview error:', e);
+    showToast('PDF generation failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '\uD83D\uDCC4 Download PDF Preview';
+  }
+}
+
+async function handleSubmit() {
+  const daName = document.getElementById('daName').value.trim();
+  const office = document.getElementById('homeOffice').value;
+  const level  = document.getElementById('currentTier').value;
+  const omSig  = document.getElementById('omSignature').value.trim();
+  if (!daName || !office || !level || !omSig) {
+    showToast('Fill in Manager Name, Office, Level, and Reviewer Signature before submitting.', 'error'); return;
+  }
+  const cfg = getConfig();
+  if (!cfg.workerUrl) { showToast('Worker URL not configured. Contact IT.', 'error'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+
+  const summary = buildSummary();
+  let emailOk = false, clickupOk = false;
+
+  try {
+    btn.textContent = 'Generating PDF…';
+    let formPdfB64 = null, formHtmlB64 = null, ext = 'html';
+    try {
+      formPdfB64 = await generatePDF(summary);
+      ext = 'pdf';
+    } catch(e) {
+      console.warn('PDF generation failed, using HTML snapshot:', e);
+      formHtmlB64 = buildFormSnapshot(summary);
+    }
+
+    const reviewDate = document.getElementById('reviewDate')?.value || new Date().toISOString().slice(0,10);
+    const taskName   = `RCM Manager Review — ${daName} — ${office} — ${reviewDate}`;
+    const taskBody   = JSON.stringify({
+      name: taskName,
+      description: summary.text,
+      priority: 2,
+      custom_fields: buildCustomFields(),
+    });
+
+    btn.textContent = 'Submitting…';
+    const res = await fetch(cfg.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_name: taskName,
+        task_body: taskBody,
+        da_name: daName, office, tier: level,
+        review_date: reviewDate,
+        score:    document.getElementById('totalScore')?.textContent   || '—',
+        raise:    document.getElementById('raisePreview')?.textContent || '—',
+        new_rate: document.getElementById('newRatePreview')?.textContent || '—',
+        band:     document.getElementById('bandName')?.textContent     || '—',
+        reviewer: document.getElementById('reviewerName')?.value       || '—',
+        summary: summary.text,
+        form_pdf_b64:  formPdfB64,
+        form_html_b64: formHtmlB64,
+        form_filename: `RCM_Review_${daName.replace(/\s+/g,'_')}_${reviewDate}.${ext}`,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      clickupOk = !!data.clickup_ok;
+      emailOk   = !!data.email_ok;
+      if (data.errors?.length) console.warn('Worker errors:', data.errors);
+    } else {
+      const errText = await res.text().catch(() => res.status);
+      console.error('Worker responded', res.status, errText);
+    }
+  } catch(e) { console.error('Submit error:', e); }
+
+  btn.disabled = false; btn.textContent = 'Submit for Approval';
+  const parts = [];
+  if (clickupOk) parts.push('ClickUp task created ✓');
+  else parts.push('ClickUp: failed — check console');
+  if (emailOk) parts.push('Email sent ✓');
+  else parts.push('Email pending (Resend key needed)');
+  showToast(parts.join('  ·  '), clickupOk ? 'success' : 'error');
+}
+
+// ─── SUMMARY ─────────────────────────────────────────────────────────────────
+
+function buildSummary() {
+  const f = id => document.getElementById(id)?.value || '—';
+  const t = id => document.getElementById(id)?.textContent || '—';
+  const name = f('daName'), office = f('homeOffice'), level = f('currentTier');
+  const rate = f('currentRate'), period = f('reviewPeriod'), reviewDate = f('reviewDate');
+  const reviewer = f('reviewerName'), omSig = f('omSignature'), empSig = f('employeeSig');
+  const p1 = t('p1Total'), p1Max = t('p1Max'), p2 = t('p2Total');
+  const total = t('totalScore'), totalMax = t('totalMax'), band = t('bandName');
+  const raise = t('raisePreview'), newRate = t('newRatePreview');
+  const gateA = document.getElementById('gateAStatus')?.textContent || '—';
+  const gateB = document.getElementById('gateBStatus')?.textContent || '—';
+  const strengths = f('strengths'), growth = f('growthAreas');
+  const goals = f('goals'), empComments = f('employeeComments');
+  const kpiNotes = f('kpiNotes');
+  const notesA = f('notesA'), notesB = f('notesB'), notesC = f('notesC');
+
+  const text = [
+    'RCM MANAGER ANNUAL REVIEW — COMPENSATION SUMMARY',
+    '══════════════════════════════════════════════════',
+    `Manager: ${name}  |  Office: ${office}  |  Level: ${level}  |  Rate: $${rate}/hr`,
+    `Review Period: ${period}  |  Date: ${reviewDate}  |  Reviewer: ${reviewer}`,
+    '',
+    'SCORES',
+    `  Part I  — KPI Performance:       ${p1} / ${p1Max}`,
+    `  Part II — In-Office Performance:  ${p2} / 75`,
+    `  TOTAL:                            ${total} / ${totalMax}  —  ${band}`,
+    '',
+    'GATES',
+    `  Gate A (Core Operations Mastery): ${gateA}`,
+    `  Gate B (Management Mastery):      ${gateB}`,
+    '',
+    'COMPENSATION DECISION',
+    `  Raise:    ${raise}`,
+    `  ${newRate}`,
+    '',
+    'NARRATIVE',
+    `  Strengths: ${strengths}`,
+    `  Growth Areas: ${growth}`,
+    `  Goals (Next 12 Months): ${goals}`,
+    `  KPI Notes: ${kpiNotes}`,
+    `  Leadership Notes: ${notesA}`,
+    `  Revenue Cycle Notes: ${notesB}`,
+    `  Systems & Compliance Notes: ${notesC}`,
+    '',
+    'EMPLOYEE RESPONSE',
+    `  ${empComments}`,
+    '',
+    `Employee Signature: ${empSig}  |  Reviewer Signature: ${omSig}`,
+    `Submitted: ${new Date().toLocaleDateString()}`,
+  ].join('\n');
+
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#2A2E31;">
+  <div style="background:#2A2E31;padding:20px 24px;">
+    <div style="color:#F2EFE8;font-family:Georgia,serif;font-size:20px;font-weight:300;">RCM Manager Annual Review — Compensation Summary</div>
+  </div>
+  <div style="padding:24px;background:#F2EFE8;">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;">
+      <tr><td style="padding:7px 10px;font-weight:600;color:#877765;width:140px;">Manager</td><td style="padding:7px 10px;">${name}</td></tr>
+      <tr style="background:#fff"><td style="padding:7px 10px;font-weight:600;color:#877765;">Primary Office</td><td style="padding:7px 10px;">${office}</td></tr>
+      <tr><td style="padding:7px 10px;font-weight:600;color:#877765;">Level</td><td style="padding:7px 10px;">${level} · $${rate}/hr</td></tr>
+      <tr style="background:#fff"><td style="padding:7px 10px;font-weight:600;color:#877765;">Review Period</td><td style="padding:7px 10px;">${period}</td></tr>
+      <tr><td style="padding:7px 10px;font-weight:600;color:#877765;">Reviewer</td><td style="padding:7px 10px;">${reviewer}</td></tr>
+    </table>
+    <div style="background:#877765;color:#fff;padding:16px 20px;border-radius:5px;margin-bottom:10px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.75;margin-bottom:4px;">Total Score</div>
+      <div style="font-size:32px;font-family:Georgia,serif;">${total} / ${totalMax}</div>
+      <div style="font-size:14px;margin-top:4px;opacity:0.9;">${band}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:10px;font-size:13px;">
+      <tr><td style="padding:7px 10px;">Part I — KPI Performance</td><td style="padding:7px 10px;text-align:right;font-weight:600;">${p1} / ${p1Max}</td></tr>
+      <tr style="background:#fff"><td style="padding:7px 10px;">Part II — In-Office Performance</td><td style="padding:7px 10px;text-align:right;font-weight:600;">${p2} / 75</td></tr>
+      <tr><td style="padding:7px 10px;">Gate A — Core Operations Mastery</td><td style="padding:7px 10px;text-align:right;font-weight:600;">${gateA}</td></tr>
+      <tr style="background:#fff"><td style="padding:7px 10px;">Gate B — Management Mastery</td><td style="padding:7px 10px;text-align:right;font-weight:600;">${gateB}</td></tr>
+    </table>
+    <div style="background:#2A2E31;color:#fff;padding:18px 20px;border-radius:5px;margin-bottom:20px;text-align:center;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.6;margin-bottom:6px;">Recommended Raise</div>
+      <div style="font-size:34px;font-family:Georgia,serif;">${raise}</div>
+      <div style="font-size:13px;opacity:0.7;margin-top:4px;">${newRate}</div>
+    </div>
+    ${strengths !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Strengths</div><div style="font-size:13px;">${strengths}</div></div>` : ''}
+    ${growth !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Growth Areas</div><div style="font-size:13px;">${growth}</div></div>` : ''}
+    ${goals !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Goals (Next 12 Months)</div><div style="font-size:13px;">${goals}</div></div>` : ''}
+    ${empComments !== '—' ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#877765;margin-bottom:4px;">Employee Response</div><div style="font-size:13px;">${empComments}</div></div>` : ''}
+    <div style="font-size:12px;color:#877765;border-top:1px solid #D6CDBD;padding-top:12px;margin-top:8px;">
+      Employee: ${empSig} &nbsp;·&nbsp; Reviewer: ${omSig} &nbsp;·&nbsp; Submitted: ${new Date().toLocaleDateString()}
+    </div>
+  </div>
+</div>`;
+
+  return { text, html };
+}
+
+function buildFormSnapshot(summary) {
+  return btoa(unescape(encodeURIComponent(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>RCM Review</title></head><body><pre>${summary.text}</pre></body></html>`)));
+}
+
+// ─── PDF GENERATION ───────────────────────────────────────────────────────────
+
+async function generatePDF(summary) {
+  if (!window.jspdf)                  throw new Error('jsPDF not loaded');
+  if (typeof html2canvas === 'undefined') throw new Error('html2canvas not loaded');
+
+  const { jsPDF } = window.jspdf;
+  const mainEl = document.querySelector('.main');
+
+  // 1. Expand all level bodies
+  const tierBodies = [...mainEl.querySelectorAll('.tier-body')];
+  const wasOpen    = tierBodies.map(b => b.classList.contains('open'));
+  tierBodies.forEach(b => b.classList.add('open'));
+
+  // 2. Un-sticky score bar
+  const scoreBar = mainEl.querySelector('.score-summary');
+  const origPos  = scoreBar ? scoreBar.style.position : '';
+  if (scoreBar) scoreBar.style.position = 'relative';
+
+  // 3. Hide modals
+  const modals = [...document.querySelectorAll('.modal-overlay')];
+  modals.forEach(m => { m._prevDisplay = m.style.display; m.style.display = 'none'; });
+
+  // 4. Capture
+  let canvas;
+  try {
+    canvas = await html2canvas(mainEl, {
+      scale: 2, useCORS: true, allowTaint: false,
+      backgroundColor: '#F2EFE8', scrollX: 0, scrollY: 0,
+      windowWidth: mainEl.scrollWidth, windowHeight: mainEl.scrollHeight, logging: false,
+    });
+  } finally {
+    tierBodies.forEach((b, i) => { if (!wasOpen[i]) b.classList.remove('open'); });
+    if (scoreBar) scoreBar.style.position = origPos;
+    modals.forEach(m => { m.style.display = m._prevDisplay || ''; delete m._prevDisplay; });
+  }
+
+  // 5. Slice into A4 pages
+  const imgData = canvas.toDataURL('image/jpeg', 0.93);
+  const pdf     = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pdfW    = pdf.internal.pageSize.getWidth();
+  const pdfH    = pdf.internal.pageSize.getHeight();
+  const imgW    = pdfW;
+  const imgH    = (canvas.height * imgW) / canvas.width;
+
+  let yPos = 0;
+  pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+  while (yPos + pdfH < imgH) {
+    yPos += pdfH;
+    pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, -yPos, imgW, imgH);
+  }
+  return pdf.output('datauristring').split(',')[1];
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+
+const WORKER_URL = 'https://sh-da-review-worker.smilehaus.workers.dev/submit';
+
+function getConfig() {
+  return { workerUrl: localStorage.getItem('sh_rcm_worker_url') || WORKER_URL };
+}
+function openSettings() {
+  document.getElementById('cfg_worker_url').value = getConfig().workerUrl;
+  document.getElementById('settingsModal').classList.add('show');
+}
+function saveSettings() {
+  localStorage.setItem('sh_rcm_worker_url', document.getElementById('cfg_worker_url').value.trim() || WORKER_URL);
+  closeSettings(); showToast('Settings saved.', 'success');
+}
+function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
+async function testWorker() {
+  const url = document.getElementById('cfg_worker_url').value.trim();
+  const res = document.getElementById('cuTestResult');
+  res.textContent = 'Testing…';
+  try {
+    const r = await fetch(url.replace('/submit','/health'));
+    res.textContent = r.ok ? '✓ Connected' : '✗ Error ' + r.status;
+    res.style.color = r.ok ? '#2d6a3f' : '#c0392b';
+  } catch(e) { res.textContent = '✗ ' + e.message; res.style.color = '#c0392b'; }
+}
+
+// ─── LOCK / UNLOCK ────────────────────────────────────────────────────────────
+
+const LOCK_PIN = '1234';
+let _locked = false;
+
+function toggleLock() {
+  if (_locked) { openPinModal(); }
+  else {
+    document.body.classList.add('form-locked');
+    _locked = true;
+    const btn = document.getElementById('editLockBtn');
+    btn.classList.add('locked'); btn.innerHTML = '&#128275; Unlock';
+  }
+}
+function openSettingsGated() { if (_locked) { openPinModal('settings'); } else { openSettings(); } }
+let _pinTarget = null;
+function openPinModal(target = 'unlock') {
+  _pinTarget = target;
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinError').style.display = 'none';
+  document.getElementById('pinModal').classList.add('show');
+  setTimeout(() => document.getElementById('pinInput').focus(), 100);
+}
+function closePinModal() { document.getElementById('pinModal').classList.remove('show'); }
+function submitPin() {
+  const pin = document.getElementById('pinInput').value;
+  if (pin === LOCK_PIN) {
+    closePinModal();
+    if (_pinTarget === 'settings') { openSettings(); return; }
+    document.body.classList.remove('form-locked');
+    _locked = false;
+    const btn = document.getElementById('editLockBtn');
+    btn.classList.remove('locked'); btn.innerHTML = '&#128274; Lock';
+  } else {
+    document.getElementById('pinError').style.display = 'block';
+  }
+}
+
+// ─── RESET ────────────────────────────────────────────────────────────────────
+
+function confirmReset() { document.getElementById('resetModal').classList.add('show'); }
+function closeResetModal() { document.getElementById('resetModal').classList.remove('show'); }
+function resetForm() {
+  closeResetModal();
+  localStorage.removeItem(SAVE_KEY);
+  Object.keys(scores).forEach(k => delete scores[k]);
+  Object.keys(skillState).forEach(k => delete skillState[k]);
+  highestPromoLevel = null;
+
+  document.querySelectorAll('.main input, .main select, .main textarea').forEach(el => {
+    if (el.tagName === 'SELECT') el.value = '';
+    else if (el.type === 'date') {
+      if (el.id === 'reviewDate' || el.id === 'submitDate' || el.id === 'employeeSigDate') el.value = new Date().toISOString().slice(0,10);
+      else el.value = '';
+    } else el.value = '';
+  });
+  document.querySelectorAll('.main .score-btn, .submit-section .score-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.main .skill-btn').forEach(btn => btn.className = 'skill-btn');
+
+  renderKPIs(); renderPerf(); renderLevelAccordion();
+  restoreCustomSkills();
+
+  if (document.body.classList.contains('form-locked')) {
+    document.body.classList.remove('form-locked');
+    _locked = false;
+    const btn = document.getElementById('editLockBtn');
+    btn.classList.remove('locked'); btn.innerHTML = '&#128274; Lock';
+  }
+  recalc();
+  showToast('Form has been reset.', 'success');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => { t.className = 'toast'; }, 5000);
+}
+
+// ─── PERSISTENCE ─────────────────────────────────────────────────────────────
+
+const SAVE_KEY     = 'sh_rcm_review_data';
+const TEMPLATE_KEY = 'sh_rcm_review_template';
+const SKILLS_KEY   = 'sh_rcm_review_skills';
+
+function getCustomSkills() {
+  const cs = {};
+  ['L1','L2'].forEach(k => {
+    const body = document.getElementById(`tierBody_${k}`);
+    if (!body) return;
+    const base = LEVEL_SKILLS[k].length;
+    const rows = body.querySelectorAll('.skill-row');
+    if (rows.length > base) {
+      cs[k] = [];
+      for (let i = base; i < rows.length; i++) {
+        cs[k].push(rows[i].querySelector('.skill-name')?.textContent || '');
+      }
+    }
+  });
+  return cs;
+}
+
+function autoSaveCustomSkills() { localStorage.setItem(SKILLS_KEY, JSON.stringify(getCustomSkills())); }
+
+function restoreCustomSkills() {
+  let customSkills = null, skillNames = null, kpiNames = null;
+  const tmplRaw = localStorage.getItem(TEMPLATE_KEY);
+  if (tmplRaw) {
+    try {
+      const t = JSON.parse(tmplRaw);
+      customSkills = t.customSkills || null;
+      skillNames   = t.skillNames   || null;
+      kpiNames     = t.kpiNames     || null;
+    } catch {}
+  }
+  if (!customSkills) {
+    const raw = localStorage.getItem(SKILLS_KEY);
+    try { if (raw) customSkills = JSON.parse(raw); } catch {}
+  }
+  if (customSkills) {
+    Object.keys(customSkills).forEach(levelKey => {
+      (customSkills[levelKey] || []).filter(Boolean).forEach(text => {
+        addSkill(levelKey);
+        const body = document.getElementById(`tierBody_${levelKey}`);
+        const rows = body.querySelectorAll('.skill-row');
+        const nameEl = rows[rows.length - 1].querySelector('.skill-name');
+        if (nameEl) { nameEl.textContent = text; nameEl.contentEditable = 'false'; }
+      });
+    });
+  }
+  if (skillNames) {
+    Object.keys(skillNames).forEach(key => {
+      const el = document.getElementById(`skillName_${key}`);
+      if (el) el.textContent = skillNames[key];
+    });
+  }
+  if (kpiNames) {
+    Object.keys(kpiNames).forEach(id => {
+      const el = document.getElementById(`kpiName_${id}`);
+      if (el) el.textContent = kpiNames[id];
+    });
+  }
+}
+
+function saveTemplate() {
+  const template = { customSkills: getCustomSkills(), skillNames: {}, kpiNames: {} };
+  ['L1','L2'].forEach(k => {
+    const body = document.getElementById(`tierBody_${k}`);
+    if (!body) return;
+    const rows = body.querySelectorAll('.skill-row');
+    (LEVEL_SKILLS[k] || []).forEach((orig, i) => {
+      const current = rows[i]?.querySelector('.skill-name')?.textContent || '';
+      if (current && current !== orig) template.skillNames[`${k}_${i}`] = current;
+    });
+  });
+  KPIS.forEach(kpi => {
+    const el = document.getElementById(`kpiName_${kpi.id}`);
+    const current = el?.textContent || '';
+    if (current && current !== kpi.name) template.kpiNames[kpi.id] = current;
+  });
+  localStorage.setItem(TEMPLATE_KEY, JSON.stringify(template));
+  localStorage.setItem(SKILLS_KEY, JSON.stringify(template.customSkills));
+  showToast('Template saved — competencies and labels preserved across resets.', 'success');
+}
+
+let _saveTimer = null;
+function saveFormState() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    const state = { _scores: {...scores}, _skillState: {...skillState}, _dynamicSkills: {} };
+    document.querySelectorAll('.main [id], .submit-section [id]').forEach(el => {
+      if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+        if (el.id && el.id !== 'pinInput') state[el.id] = el.value;
+      }
+    });
+    document.querySelectorAll('[data-editable][id]').forEach(el => { state[el.id] = el.textContent; });
+    ['L1','L2'].forEach(k => {
+      const body = document.getElementById(`tierBody_${k}`);
+      if (!body) return;
+      const base = LEVEL_SKILLS[k].length;
+      const rows = body.querySelectorAll('.skill-row');
+      if (rows.length > base) {
+        state._dynamicSkills[k] = [];
+        for (let i = base; i < rows.length; i++) {
+          state._dynamicSkills[k].push(rows[i].querySelector('.skill-name')?.textContent || '');
+        }
+      }
+    });
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  }, 300);
+}
+
+function restoreFormState() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return;
+  let state;
+  try { state = JSON.parse(raw); } catch { return; }
+
+  Object.keys(state).filter(k => !k.startsWith('_')).forEach(id => {
+    const el = document.getElementById(id);
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) el.value = state[id];
+  });
+  document.querySelectorAll('[data-editable][id]').forEach(el => {
+    if (state[el.id] !== undefined) el.textContent = state[el.id];
+  });
+  if (state._scores) {
+    Object.assign(scores, state._scores);
+    Object.keys(state._scores).forEach(id => {
+      const val = state._scores[id];
+      document.querySelectorAll(`[data-id="${id}"][data-val]`).forEach(btn => {
+        btn.classList.toggle('active', String(btn.dataset.val) === String(val));
+      });
+    });
+  }
+  if (state._skillState) {
+    Object.assign(skillState, state._skillState);
+    Object.keys(state._skillState).forEach(k => {
+      const parts = k.split('_');
+      const levelKey = parts[0], idx = parts[1];
+      const sv = state._skillState[k];
+      const canBtn    = document.getElementById(`skill_${levelKey}_${idx}_can`);
+      const cannotBtn = document.getElementById(`skill_${levelKey}_${idx}_cannot`);
+      if (canBtn)    canBtn.className = 'skill-btn' + (sv === 'can' ? ' can-do' : '');
+      if (cannotBtn) cannotBtn.className = 'skill-btn' + (sv === 'cannot' ? ' cannot-do' : '');
+    });
+  }
+  if (state._dynamicSkills) {
+    Object.keys(state._dynamicSkills).forEach(levelKey => {
+      (state._dynamicSkills[levelKey] || []).forEach(text => {
+        addSkill(levelKey);
+        const body = document.getElementById(`tierBody_${levelKey}`);
+        const rows = body.querySelectorAll('.skill-row');
+        const nameEl = rows[rows.length - 1].querySelector('.skill-name');
+        if (nameEl) nameEl.textContent = text;
+      });
+    });
+  }
+  if (document.getElementById('currentTier').value) onLevelChange(true);
+  recalc();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+renderKPIs();
+renderPerf();
+renderLevelAccordion();
+const today = new Date().toISOString().slice(0,10);
+document.getElementById('reviewDate').value        = today;
+document.getElementById('submitDate').value        = today;
+document.getElementById('employeeSigDate').value   = today;
+restoreFormState();
+document.querySelector('.main').addEventListener('input', saveFormState);
+document.querySelector('.main').addEventListener('change', saveFormState);
+document.querySelector('.submit-section').addEventListener('input', saveFormState);
+</script>
+</body>
+</html>
