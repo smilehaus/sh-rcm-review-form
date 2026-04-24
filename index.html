@@ -199,6 +199,18 @@ body.form-locked .add-skill-btn { display: none; }
 .gate-box.incomplete .gate-box-status { color: var(--taupe); }
 .gate-box-sub { font-size: 11px; color: var(--taupe); margin-top: 3px; }
 
+/* Salary conversion card */
+.salary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: end; }
+.salary-result { background: var(--alabaster); border: 1px solid var(--sandstone); border-radius: var(--radius); padding: 12px 16px; }
+.salary-result-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--earth); margin-bottom: 4px; }
+.salary-result-value { font-size: 22px; font-family: var(--font-head); font-weight: 400; color: var(--onyx); line-height: 1.1; }
+.salary-result-sub { font-size: 11px; color: #877765; margin-top: 2px; }
+.salary-result.highlight { background: var(--onyx); border-color: var(--onyx); }
+.salary-result.highlight .salary-result-label { color: var(--taupe); }
+.salary-result.highlight .salary-result-value { color: var(--white); }
+.salary-result.highlight .salary-result-sub { color: rgba(255,255,255,0.5); }
+.salary-note { font-size: 11px; color: var(--earth); margin-top: 10px; text-align: center; }
+
 /* Signature block */
 .sig-block { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
 
@@ -284,6 +296,7 @@ body.form-locked .add-skill-btn { display: none; }
       <div class="band-name" id="bandName" style="opacity:0.35;">Fill in scores below</div>
       <div class="raise-preview" id="raisePreview">—</div>
       <div class="new-rate" id="newRatePreview">Select level &amp; enter scores</div>
+      <div class="new-rate" id="salaryPreview" style="opacity:0.4;margin-top:1px;display:none;"></div>
     </div>
   </div>
 
@@ -442,6 +455,39 @@ body.form-locked .add-skill-btn { display: none; }
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Salary Conversion -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Salary Conversion</h2>
+      <span class="pts">Hourly ↔ Annual</span>
+    </div>
+    <div class="card-body">
+      <div class="salary-grid">
+        <div>
+          <label class="field-label">Annual Salary (optional)</label>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:14px;font-weight:600;color:var(--earth);">$</span>
+            <input type="number" id="salaryInput" min="0" step="500" placeholder="e.g. 54,000"
+              style="flex:1;" oninput="onSalaryInput()">
+            <span style="font-size:13px;color:var(--earth);">/yr</span>
+          </div>
+          <div style="font-size:11px;color:var(--earth);margin-top:4px;">Type a salary to see hourly equivalent, or leave blank to convert from hourly rate above.</div>
+        </div>
+        <div class="salary-result" id="salaryCurrentResult">
+          <div class="salary-result-label">Current Rate</div>
+          <div class="salary-result-value" id="salaryCurrentAnnual">—</div>
+          <div class="salary-result-sub" id="salaryCurrentHourly">Enter current rate above</div>
+        </div>
+        <div class="salary-result highlight" id="salaryNewResult">
+          <div class="salary-result-label">New Rate (after raise)</div>
+          <div class="salary-result-value" id="salaryNewAnnual">—</div>
+          <div class="salary-result-sub" id="salaryNewHourly">Complete scores above</div>
+        </div>
+      </div>
+      <div class="salary-note">Based on 2,080 hours/year (40 hrs/wk × 52 wks). Adjust salary input to use a different basis.</div>
     </div>
   </div>
 
@@ -1012,8 +1058,8 @@ function recalc() {
     const overrideNewRate = baseRate + ov.raiseAmt;
     document.getElementById('raisePreview').textContent   = `+$${ov.raiseAmt.toFixed(2)}/hr`;
     document.getElementById('newRatePreview').textContent = `Override · New rate: $${overrideNewRate.toFixed(2)}/hr`;
-    // Update inline preview too
     document.getElementById('overrideNewRatePreview').textContent = baseRate > 0 ? `→ $${overrideNewRate.toFixed(2)}/hr` : '';
+    updateSalaryDisplay(baseRate, overrideNewRate);
     return;
   }
 
@@ -1022,6 +1068,7 @@ function recalc() {
     const msg = !level ? 'Select level above' : total < 70 ? 'Score below 70 — no raise' : 'Gate A not passed — no raise';
     document.getElementById('raisePreview').textContent  = '$0.00/hr';
     document.getElementById('newRatePreview').textContent = msg;
+    updateSalaryDisplay(baseRate, 0);
     return;
   }
 
@@ -1037,6 +1084,7 @@ function recalc() {
   document.getElementById('newRatePreview').textContent = promoting
     ? `Advancing to ${highestPromoLevel} · New rate: $${newRate.toFixed(2)}/hr`
     : `New rate: $${newRate.toFixed(2)}/hr`;
+  updateSalaryDisplay(baseRate, newRate);
 }
 
 function getBand(score) {
@@ -1223,6 +1271,54 @@ function getOverrideData() {
   };
 }
 
+// ─── SALARY CONVERSION ───────────────────────────────────────────────────────
+
+const HOURS_PER_YEAR = 2080;
+
+function fmtSalary(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function onSalaryInput() {
+  const salaryVal = parseFloat(document.getElementById('salaryInput').value);
+  if (salaryVal > 0) {
+    // Salary entered → derive hourly, push to current rate field and recalc
+    const hourly = salaryVal / HOURS_PER_YEAR;
+    document.getElementById('currentRate').value = hourly.toFixed(2);
+  }
+  recalc();
+  saveData();
+}
+
+function updateSalaryDisplay(currentHourly, newHourly) {
+  const salaryInput = parseFloat(document.getElementById('salaryInput').value);
+
+  // Current side
+  if (currentHourly > 0) {
+    const currentAnnual = salaryInput > 0 ? salaryInput : currentHourly * HOURS_PER_YEAR;
+    document.getElementById('salaryCurrentAnnual').textContent = fmtSalary(currentAnnual) + '/yr';
+    document.getElementById('salaryCurrentHourly').textContent = `$${currentHourly.toFixed(2)}/hr`;
+  } else {
+    document.getElementById('salaryCurrentAnnual').textContent = '—';
+    document.getElementById('salaryCurrentHourly').textContent = 'Enter current rate above';
+  }
+
+  // New rate side
+  if (newHourly > 0) {
+    const newAnnual = newHourly * HOURS_PER_YEAR;
+    document.getElementById('salaryNewAnnual').textContent = fmtSalary(newAnnual) + '/yr';
+    document.getElementById('salaryNewHourly').textContent = `$${newHourly.toFixed(2)}/hr`;
+    // Score bar salary line
+    const salPrev = document.getElementById('salaryPreview');
+    salPrev.textContent = `≈ ${fmtSalary(newAnnual)}/yr`;
+    salPrev.style.display = 'block';
+  } else {
+    document.getElementById('salaryNewAnnual').textContent = '—';
+    document.getElementById('salaryNewHourly').textContent = 'Complete scores above';
+    document.getElementById('salaryPreview').style.display = 'none';
+  }
+}
+
 function onOverrideRaiseChange() {
   const ov = getOverrideData();
   if (!ov.active || ov.raiseAmt <= 0) {
@@ -1278,6 +1374,7 @@ function buildSummary() {
     'COMPENSATION DECISION',
     `  Raise:    ${raise}`,
     `  ${newRate}`,
+    `  Annual Equivalent: ${document.getElementById('salaryNewAnnual')?.textContent || '—'}`,
     ...(ovLine ? ['', '⚠ MANAGER OVERRIDE', `  ${ovLine}`] : []),
     '',
     'NARRATIVE',
