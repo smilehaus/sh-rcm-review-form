@@ -546,7 +546,11 @@ body.form-locked .add-skill-btn { display: none; }
       Submitting emails a raise summary to leadership and creates a ClickUp approval task.
       Configure both via <strong>Settings</strong> (gear icon, top right).
     </p>
-    <button class="preview-pdf-btn" id="previewPdfBtn" onclick="downloadPreviewPDF()">&#128196; Download PDF Preview</button>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+      <button class="preview-pdf-btn" id="previewPdfBtn" onclick="downloadPreviewPDF()">&#128196; Download PDF Preview</button>
+      <button class="preview-pdf-btn" id="saveDraftBtn" onclick="saveDraft()" style="background:#f5f0e8;border-color:#c8b89a;color:#5a4a2a;">&#128190; Save Draft</button>
+      <span id="draftSavedNote" style="font-size:12px;color:#888;display:none;"></span>
+    </div>
     <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">Submit for Approval</button>
   </div>
 
@@ -1208,9 +1212,12 @@ async function handleSubmit() {
     });
 
     btn.textContent = 'Submitting…';
+    const jwt = getAuthJwt();
+    const submitHeaders = { 'Content-Type': 'application/json' };
+    if (jwt) submitHeaders['Authorization'] = 'Bearer ' + jwt;
     const res = await fetch(cfg.workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: submitHeaders,
       body: JSON.stringify({
         task_name: taskName,
         task_body: taskBody,
@@ -1225,6 +1232,7 @@ async function handleSubmit() {
         form_pdf_b64:  formPdfB64,
         form_html_b64: formHtmlB64,
         form_filename: `RCM_Review_${daName.replace(/\s+/g,'_')}_${reviewDate}.${ext}`,
+        draft_id: getDraftId() || undefined,
       }),
     });
 
@@ -1233,6 +1241,8 @@ async function handleSubmit() {
       clickupOk = !!data.clickup_ok;
       emailOk   = !!data.email_ok;
       if (data.errors?.length) console.warn('Worker errors:', data.errors);
+      clearDraftId();
+      showDraftNote('');
     } else {
       const errText = await res.text().catch(() => res.status);
       console.error('Worker responded', res.status, errText);
@@ -1653,7 +1663,149 @@ async function generatePDF(summary) {
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 
-const WORKER_URL = 'https://sh-da-review-worker.smilehaus.workers.dev/submit';
+const WORKER_URL  = 'https://sh-da-review-worker.smilehaus.workers.dev/submit';
+const WORKER_BASE = 'https://sh-da-review-worker.smilehaus.workers.dev';
+const DRAFT_ID_KEY = 'sh_rcm_draft_id';
+
+// ─── AUTH + DRAFT HELPERS ────────────────────────────────────────────────────
+
+function getAuthJwt() {
+  const params = new URLSearchParams(window.location.search);
+  const authParam = params.get('auth');
+  if (authParam) {
+    localStorage.setItem('sh_review_auth', authParam);
+    try {
+      params.delete('auth');
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+      history.replaceState(null, '', newUrl);
+    } catch(e) {}
+  }
+  return localStorage.getItem('sh_review_auth') || null;
+}
+
+function getDraftId() { return localStorage.getItem(DRAFT_ID_KEY) || null; }
+function setDraftId(id) {
+  localStorage.setItem(DRAFT_ID_KEY, id);
+  try {
+    const params = new URLSearchParams(window.location.search);
+    params.set('draft', id);
+    history.replaceState(null, '', window.location.pathname + '?' + params.toString() + window.location.hash);
+  } catch(e) {}
+}
+function clearDraftId() { localStorage.removeItem(DRAFT_ID_KEY); }
+
+function showDraftNote(msg) {
+  const el = document.getElementById('draftSavedNote');
+  if (el) { el.textContent = msg; el.style.display = msg ? 'inline' : 'none'; }
+}
+
+async function saveDraft() {
+  const jwt = getAuthJwt();
+  if (!jwt) { showToast('Sign in from the dashboard to save drafts.', 'error'); return; }
+
+  const empName = document.getElementById('daName')?.value?.trim() || '';
+  const office  = document.getElementById('homeOffice')?.value || '';
+
+  const btn = document.getElementById('saveDraftBtn');
+  btn.disabled = true;
+  btn.textContent = '💾 Saving…';
+  showDraftNote('');
+
+  const state = {};
+  document.querySelectorAll('.main [id], .submit-section [id]').forEach(el => {
+    if ((el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') && el.id) state[el.id] = el.value;
+  });
+  document.querySelectorAll('[data-editable][id]').forEach(el => { state[el.id] = el.textContent; });
+  state._scores = {...scores};
+  if (typeof getOverrideData === 'function') state._override = getOverrideData();
+
+  try {
+    const existingId = getDraftId();
+    const payload = { form_type: 'rcm', employee_name: empName || 'Unnamed', office: office || 'Unknown', state };
+    if (existingId) payload.id = existingId;
+
+    const res = await fetch(WORKER_BASE + '/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setDraftId(data.id);
+      btn.disabled = false; btn.textContent = '💾 Save Draft';
+      showDraftNote('Draft saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+      showToast('Draft saved!', 'success');
+    } else if (res.status === 401) {
+      btn.disabled = false; btn.textContent = '💾 Save Draft';
+      showToast('Session expired. Sign in again from the dashboard.', 'error');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || res.status);
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '💾 Save Draft';
+    showToast('Could not save draft: ' + e.message, 'error');
+  }
+}
+
+async function loadDraftFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const draftId = params.get('draft');
+  if (!draftId) return;
+  const jwt = getAuthJwt();
+  if (!jwt) return;
+
+  try {
+    const res = await fetch(WORKER_BASE + '/draft/' + encodeURIComponent(draftId), {
+      headers: { 'Authorization': 'Bearer ' + jwt },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.state) {
+      setDraftId(draftId);
+      const state = data.state;
+      Object.keys(state).filter(k => !k.startsWith('_')).forEach(id => {
+        const el = document.getElementById(id);
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) el.value = state[id];
+      });
+      document.querySelectorAll('[data-editable][id]').forEach(el => {
+        if (state[el.id] !== undefined) el.textContent = state[el.id];
+      });
+      if (state._scores) {
+        Object.assign(scores, state._scores);
+        Object.keys(state._scores).forEach(id => {
+          const val = state._scores[id];
+          document.querySelectorAll(`[data-id="${id}"][data-val]`).forEach(b => b.classList.toggle('active', String(b.dataset.val) === String(val)));
+        });
+      }
+      if (state._override && typeof getOverrideData === 'function') {
+        const ov = state._override;
+        const cb = document.getElementById('overrideCheck');
+        if (cb) {
+          cb.checked = ov.active;
+          document.getElementById('overrideBody')?.classList.toggle('open', ov.active);
+          const badge = document.getElementById('overrideBadge');
+          if (badge) { badge.textContent = ov.active ? 'Active' : 'Off'; badge.style.color = ov.active ? '#e87770' : ''; }
+          const box = document.getElementById('overrideBox');
+          if (box) box.style.borderColor = ov.active ? '#e87770' : '';
+        }
+        if (ov.comment) { const el = document.getElementById('overrideComment'); if (el) el.value = ov.comment; }
+        if (ov.raiseAmt) { const el = document.getElementById('overrideRaise'); if (el) el.value = ov.raiseAmt; }
+        if (ov.convertSalary) { const cc = document.getElementById('convertToSalaryCheck'); if (cc) { cc.checked = true; document.getElementById('salaryCard').style.display = ''; } }
+        if (ov.goalsActive && ov.goals?.length) {
+          const gc = document.getElementById('goalDatesCheck');
+          if (gc) { gc.checked = true; document.getElementById('goalDatesBody')?.classList.add('open'); ov.goals.forEach(g => addGoal(g.desc, g.date, g.amt || '')); }
+        }
+      }
+      recalc();
+      showDraftNote('Draft loaded · ' + (data.employee_name || ''));
+      showToast('Draft resumed — ' + (data.employee_name || 'draft') + ' · ' + (data.office || ''), 'success');
+    }
+  } catch(e) {
+    console.warn('Could not load draft:', e);
+  }
+}
 
 function getConfig() {
   return { workerUrl: localStorage.getItem('sh_rcm_worker_url') || WORKER_URL };
@@ -2013,7 +2165,15 @@ const today = new Date().toISOString().slice(0,10);
 document.getElementById('reviewDate').value        = today;
 document.getElementById('submitDate').value        = today;
 document.getElementById('employeeSigDate').value   = today;
-restoreFormState();
+// Initialize auth from URL param and check for draft to resume
+getAuthJwt();
+const _urlDraftId = new URLSearchParams(window.location.search).get('draft');
+if (_urlDraftId) {
+  setDraftId(_urlDraftId);
+  loadDraftFromUrl().then(() => {});
+} else {
+  restoreFormState();
+}
 document.querySelector('.main').addEventListener('input', saveFormState);
 document.querySelector('.main').addEventListener('change', saveFormState);
 document.querySelector('.submit-section').addEventListener('input', saveFormState);
