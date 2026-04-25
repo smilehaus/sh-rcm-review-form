@@ -1773,9 +1773,10 @@ async function loadDraftFromUrl() {
     });
     if (!res.ok) return;
     const data = await res.json();
-    if (data.state) {
+    const draft = data.draft || data; // worker returns { ok, draft: {...} }
+    if (draft.state) {
       setDraftId(draftId);
-      const state = data.state;
+      const state = draft.state;
       Object.keys(state).filter(k => !k.startsWith('_')).forEach(id => {
         const el = document.getElementById(id);
         if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) el.value = state[id];
@@ -1810,8 +1811,8 @@ async function loadDraftFromUrl() {
         }
       }
       recalc();
-      showDraftNote('Draft loaded · ' + (data.employee_name || ''));
-      showToast('Draft resumed — ' + (data.employee_name || 'draft') + ' · ' + (data.office || ''), 'success');
+      showDraftNote('Draft loaded · ' + (draft.employee_name || ''));
+      showToast('Draft resumed — ' + (draft.employee_name || 'draft') + ' · ' + (draft.office || ''), 'success');
     }
   } catch(e) {
     console.warn('Could not load draft:', e);
