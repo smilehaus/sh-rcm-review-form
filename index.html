@@ -286,6 +286,7 @@ body.form-locked .add-skill-btn { display: none; }
     <button class="reset-btn" onclick="confirmReset()">&#8635; Reset</button>
     <button class="edit-lock-btn" id="editLockBtn" onclick="toggleLock()">&#128274; Lock</button>
     <button class="settings-btn" onclick="openSettingsGated()">&#9881; Settings</button>
+    <a id="backToRecordsBtn" href="https://sh-review-dashboard.pages.dev/records.html" style="display:none;padding:6px 13px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);border-radius:7px;color:#fff;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.22)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">&#8592; Records</a>
   </div>
 </header>
 
@@ -2167,6 +2168,7 @@ document.getElementById('submitDate').value        = today;
 document.getElementById('employeeSigDate').value   = today;
 // Initialize auth from URL param and check for draft to resume
 getAuthJwt();
+if (localStorage.getItem('sh_review_auth')) { const rb = document.getElementById('backToRecordsBtn'); if (rb) rb.style.display = 'inline-flex'; }
 const _urlDraftId = new URLSearchParams(window.location.search).get('draft');
 if (_urlDraftId) {
   setDraftId(_urlDraftId);
