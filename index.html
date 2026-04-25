@@ -280,13 +280,13 @@ body.form-locked .add-skill-btn { display: none; }
 <header class="site-header">
   <img src="logo-white.png" alt="Smile Haus" onerror="this.style.display='none'">
   <h1>RCM Manager Annual Review</h1>
-  <div style="display:flex;gap:8px;align-items:center;">
-    <button class="edit-labels-btn" id="editLabelsBtn" onclick="toggleEditLabels()" title="Edit KPI names, descriptions, and competency labels">&#9998; Edit Labels</button>
-    <button class="template-btn" onclick="saveTemplate()" title="Save current competencies as template">&#128190; Save Template</button>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <a id="backToHomeBtn" href="https://sh-review-dashboard.pages.dev/" style="display:none;padding:6px 13px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);border-radius:7px;color:#fff;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.22)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">&#127968; Home</a>
+    <a id="backToRecordsBtn" href="https://sh-review-dashboard.pages.dev/records.html" style="display:none;padding:6px 13px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);border-radius:7px;color:#fff;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.22)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">&#8592; Records</a>
+    <button id="headerSaveDraftBtn" onclick="saveDraft()" style="display:none;padding:6px 13px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);border-radius:7px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">&#128190; Save Draft</button>
     <button class="reset-btn" onclick="confirmReset()">&#8635; Reset</button>
     <button class="edit-lock-btn" id="editLockBtn" onclick="toggleLock()">&#128274; Lock</button>
     <button class="settings-btn" onclick="openSettingsGated()">&#9881; Settings</button>
-    <a id="backToRecordsBtn" href="https://sh-review-dashboard.pages.dev/records.html" style="display:none;padding:6px 13px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);border-radius:7px;color:#fff;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.22)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">&#8592; Records</a>
   </div>
 </header>
 
@@ -1707,9 +1707,8 @@ async function saveDraft() {
   const empName = document.getElementById('daName')?.value?.trim() || '';
   const office  = document.getElementById('homeOffice')?.value || '';
 
-  const btn = document.getElementById('saveDraftBtn');
-  btn.disabled = true;
-  btn.textContent = '💾 Saving…';
+  const _draftBtns = ['saveDraftBtn','headerSaveDraftBtn'].map(id => document.getElementById(id)).filter(Boolean);
+  _draftBtns.forEach(b => { b.disabled = true; b.textContent = '💾 Saving…'; });
   showDraftNote('');
 
   const state = {};
@@ -1734,18 +1733,18 @@ async function saveDraft() {
     if (res.ok) {
       const data = await res.json();
       setDraftId(data.id);
-      btn.disabled = false; btn.textContent = '💾 Save Draft';
+      _draftBtns.forEach(b => { b.disabled = false; b.textContent = '💾 Save Draft'; });
       showDraftNote('Draft saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
       showToast('Draft saved!', 'success');
     } else if (res.status === 401) {
-      btn.disabled = false; btn.textContent = '💾 Save Draft';
+      _draftBtns.forEach(b => { b.disabled = false; b.textContent = '💾 Save Draft'; });
       showToast('Session expired. Sign in again from the dashboard.', 'error');
     } else {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || res.status);
     }
   } catch(e) {
-    btn.disabled = false; btn.textContent = '💾 Save Draft';
+    _draftBtns.forEach(b => { b.disabled = false; b.textContent = '💾 Save Draft'; });
     showToast('Could not save draft: ' + e.message, 'error');
   }
 }
@@ -2168,7 +2167,11 @@ document.getElementById('submitDate').value        = today;
 document.getElementById('employeeSigDate').value   = today;
 // Initialize auth from URL param and check for draft to resume
 getAuthJwt();
-if (localStorage.getItem('sh_review_auth')) { const rb = document.getElementById('backToRecordsBtn'); if (rb) rb.style.display = 'inline-flex'; }
+if (localStorage.getItem('sh_review_auth')) {
+  ['backToHomeBtn','backToRecordsBtn','headerSaveDraftBtn'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'inline-flex';
+  });
+}
 const _urlDraftId = new URLSearchParams(window.location.search).get('draft');
 if (_urlDraftId) {
   setDraftId(_urlDraftId);
