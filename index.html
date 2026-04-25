@@ -1724,11 +1724,22 @@ async function saveDraft() {
     const payload = { form_type: 'rcm', employee_name: empName || 'Unnamed', office: office || 'Unknown', state };
     if (existingId) payload.id = existingId;
 
-    const res = await fetch(WORKER_BASE + '/draft', {
+    let res = await fetch(WORKER_BASE + '/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
       body: JSON.stringify(payload),
     });
+
+    // If draft ID was stale (deleted/expired), retry as a fresh save
+    if (res.status === 404 && payload.id) {
+      clearDraftId();
+      delete payload.id;
+      res = await fetch(WORKER_BASE + '/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+        body: JSON.stringify(payload),
+      });
+    }
 
     if (res.ok) {
       const data = await res.json();
@@ -1740,8 +1751,8 @@ async function saveDraft() {
       _draftBtns.forEach(b => { b.disabled = false; b.textContent = '💾 Save Draft'; });
       showToast('Session expired. Sign in again from the dashboard.', 'error');
     } else {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || res.status);
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || res.status);
     }
   } catch(e) {
     _draftBtns.forEach(b => { b.disabled = false; b.textContent = '💾 Save Draft'; });
