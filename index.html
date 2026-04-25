@@ -2196,9 +2196,12 @@ if (localStorage.getItem('sh_review_auth')) {
 }
 const _urlDraftId = new URLSearchParams(window.location.search).get('draft');
 if (_urlDraftId) {
+  // Resuming a specific draft — load it from the server
   setDraftId(_urlDraftId);
   loadDraftFromUrl().then(() => {});
 } else {
+  // Fresh open — always clear any stale draft ID so this fill creates a new draft
+  clearDraftId();
   restoreFormState();
 }
 document.querySelector('.main').addEventListener('input', saveFormState);
