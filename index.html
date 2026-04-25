@@ -1212,6 +1212,15 @@ async function handleSubmit() {
       custom_fields: buildCustomFields(),
     });
 
+    // Capture full form state for re-edit support
+    const formState = {};
+    document.querySelectorAll('.main [id], .submit-section [id]').forEach(el => {
+      if ((el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') && el.id) formState[el.id] = el.value;
+    });
+    document.querySelectorAll('[data-editable][id]').forEach(el => { formState[el.id] = el.textContent; });
+    formState._scores = {...scores};
+    if (typeof getOverrideData === 'function') formState._override = getOverrideData();
+
     btn.textContent = 'Submitting…';
     const jwt = getAuthJwt();
     const submitHeaders = { 'Content-Type': 'application/json' };
@@ -1234,6 +1243,7 @@ async function handleSubmit() {
         form_html_b64: formHtmlB64,
         form_filename: `RCM_Review_${daName.replace(/\s+/g,'_')}_${reviewDate}.${ext}`,
         draft_id: getDraftId() || undefined,
+        form_state: formState,
       }),
     });
 
