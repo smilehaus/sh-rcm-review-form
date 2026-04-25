@@ -1910,6 +1910,16 @@ function resetForm() {
     const btn = document.getElementById('editLockBtn');
     btn.classList.remove('locked'); btn.innerHTML = '&#128274; Lock';
   }
+  // Clear draft tracking so a new Save Draft creates a fresh draft, not an update
+  clearDraftId();
+  showDraftNote('');
+  // Remove ?draft= from URL if present
+  try {
+    const p = new URLSearchParams(window.location.search);
+    p.delete('draft');
+    history.replaceState(null, '', window.location.pathname + (p.toString() ? '?' + p.toString() : '') + window.location.hash);
+  } catch(e) {}
+
   recalc();
   showToast('Form has been reset.', 'success');
 }
